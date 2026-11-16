@@ -3919,14 +3919,17 @@ window.pwSignOut = () => { setTok(''); try { google.accounts.id.disableAutoSelec
 async function boot() {
   if (!tok()) return gate();
   $('gate').hidden = false; $('gate-btn').hidden = true; $('gate-load').hidden = false; $('gate-msg').textContent = '';
-  let me;
+  let me, early = null, guess = '';
+  try { guess = localStorage.getItem('wl-pitcher') || ''; } catch (e) {}
+  // ask for the last pitcher's data in the same request as "who am I": one trip to the server instead of two
+  if (guess) { early = call('pitcherData', {pitcherId: guess}); early.catch(() => {}); }
   try { me = await call('me'); } catch (e) { return gate(e.code === 'network' ? e.message : ''); }
   ME = me;
   if (!me.pitchers.length) { $('gate-load').hidden = true; $('gate-msg').textContent = `Signed in as ${me.email}, but no pitchers are assigned to you yet. Ask the admin to add you on the Assignments tab.`; return; }
   let pid = ''; try { pid = localStorage.getItem('wl-pitcher') || ''; } catch (e) {}
   if (!me.pitchers.some(p => p.id === pid)) pid = me.role === 'player' ? me.id : me.pitchers[0].id;
   let D;
-  try { D = await call('pitcherData', {pitcherId: pid}); } catch (e) { $('gate-load').hidden = true; $('gate-msg').textContent = e.message || 'Could not load the data.'; return; }
+  try { D = (early && pid === guess) ? await early.catch(() => call('pitcherData', {pitcherId: pid})) : await call('pitcherData', {pitcherId: pid}); } catch (e) { $('gate-load').hidden = true; $('gate-msg').textContent = e.message || 'Could not load the data.'; return; }
   try { localStorage.setItem('wl-pitcher', pid); } catch (e) {}
   window.__LIVE = {role: me.role, pitchers: me.pitchers, pitcher: pid, me};
   const root = document.createElement('div'); root.id = 'app-root';
