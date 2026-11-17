@@ -543,6 +543,11 @@ body.live .pv-preview { display: none; }
 #ch-tl .tlr{font-size:10.5px;fill:var(--muted)}#ch-tl .tlbad{fill:var(--bad);font-weight:700}
 #tl-table td.bad{color:var(--bad);font-weight:600}#tl-table td.ok{color:var(--good)}#tl-table tr.inn td:first-child{padding-left:18px}
 .tlplyo{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:10px;font-size:13px}.tlplyo input[type=time]{width:110px}
+.mtrow td{background:color-mix(in srgb,#EF9F27 16%,transparent);color:var(--ink)}.tip-mt{margin-top:4px}.mt-ok{color:var(--good)}.mt-off{color:#b8860b}
+.pv-mt{background:color-mix(in srgb,#EF9F27 16%,transparent);border-radius:8px;padding:6px 9px;margin:4px 0 6px}.pv-mt small{display:block;color:var(--muted)}
+.cmt{font-size:11.5px;color:var(--muted);margin:2px 0 4px}
+.bmt{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:12.5px;margin:6px 0}.bmt label{display:inline-flex !important;align-items:center;gap:5px;margin:0 !important;font-size:12.5px}.bmt input{width:64px !important;padding:3px 6px !important;height:auto !important}.bmt .muted{flex-basis:100%}.bmt .muted{font-size:12px}
+.pwin{flex-wrap:wrap;gap:6px 16px;align-items:center}.pwin .pw{display:inline-flex;gap:5px;align-items:center;font-size:13px}.pwin input[type=date]{width:140px}.pwin small{flex-basis:100%}
 </style>
 
 <header class="top">
@@ -575,7 +580,8 @@ body.live .pv-preview { display: none; }
       <label for="fbv" style="margin-top:10px">Average fastball (mph)</label>
       <div class="maxrow"><input type="number" id="fbv" min="60" max="110" step="0.1" placeholder="Not set"><button class="ghost" id="fbreset" type="button" hidden>Reset</button></div>
       <small id="fb-note">Sets the velocity targets. Comes from avg_fastball_mph on the Master file's Pitchers tab; change it here to adjust for this session (the Master value returns when you reload).</small>
-      <label class="chip" style="margin-top:8px;align-self:flex-start"><input type="checkbox" id="vt-on" checked>Show velocity targets</label>
+      <label class="chip" style="margin-top:8px;align-self:flex-start"><input type="checkbox" id="vt-on" checked>↔️ Velocity ranges by distance</label>
+      <label class="chip" style="margin-top:6px;align-self:flex-start" title="The speed most throws should sit at (the mode). Catch play: all throws; moundwork, game bullpen, LIVE BP and games: fastballs only."><input type="checkbox" id="mt-on" checked>🎯 Mode targets</label>
     </div>
     </div>
   </div>
@@ -658,7 +664,7 @@ body.live .pv-preview { display: none; }
       <p class="note">Throws per 5 mph band. High is the most in one day; Avg is the average per day with throws of that kind. Both are split by day type. Shading shows each band's share of that day's throws; hover for the exact share. Under 60 mph counts 0 workload.</p>
     </div>
     <div class="panel" id="mode-panel">
-      <div class="panel-head"><h2>Velocity mode vs. target</h2><div class="legend" id="lg-mode"></div></div>
+      <div class="panel-head"><h2>🎯 Velocity mode vs. target</h2><div class="legend" id="lg-mode"></div></div>
       <div class="toolbar" style="margin-bottom:10px">
         <label class="field"><span>Throw type</span><select id="m-cat">
           <option value="cp">Catch play</option>
@@ -667,20 +673,22 @@ body.live .pv-preview { display: none; }
           <option value="lb">LIVE BP</option>
           <option value="gp">Game</option>
         </select></label>
+        <label class="field"><span>Day type</span><select id="m-dtype"><option value="">All day types</option></select></label>
         <span class="note" id="m-scope" style="margin:0 0 6px"></span>
       </div>
       <div class="chart" id="ch-mode"></div>
       <p class="note" id="m-note">Mode is the whole-number velocity thrown most often that day (ties go to the faster speed). Uses the date range, day types and estimate setting above. LIVE BP days are the sim-game sessions in the game files (team code HIM_SIM); Game pitches leaves them out.</p>
       <details open style="margin-top:12px"><summary>Targets</summary>
         <div class="toolbar" style="margin-top:10px">
-          <label class="field"><span>Target mode (mph)</span><input type="number" id="m-mph" min="40" max="105" step="1" value="75"></label>
+          <label class="field"><span>Target mode (mph)</span><input type="number" id="m-mph" min="50" max="105" step="1" value="75"></label>
           <label class="field"><span>Starting</span><input type="date" id="m-from"></label>
+          <label class="field"><span>On</span><select id="m-tdtype"><option value="">All day types</option></select></label>
           <label class="field" style="flex:1 1 220px"><span>Note</span><input type="text" id="m-tnote" placeholder="e.g. Rehab week 3, 120 ft"></label>
           <button class="primary" type="button" id="m-save">Set target</button>
         </div>
         <div class="status" id="m-status" role="status"></div>
         <div class="tablewrap"><table id="m-targets"></table></div>
-        <p class="note">A target holds from its start date until the next target for the same throw type.</p>
+        <p class="note">A target holds from its start date until the next target for the same throw type. One set for a day type (e.g. Recovery) wins over an all-days target on those days, and a single-day target set in the Builder wins over both. Catch play uses every reading; moundwork, game bullpen, LIVE BP and games use fastballs only (four-seam, two-seam, sinker).</p>
       </details>
     </div>
     <div class="panel">
@@ -743,6 +751,11 @@ body.live .pv-preview { display: none; }
         <label class="chip"><input type="checkbox" id="ps-proj" checked>Projected workload</label>
         <label class="chip"><input type="checkbox" id="ps-act" checked>Actual workload</label>
         <label class="chip"><input type="checkbox" id="ps-mode">Velocity mode vs. target (rehab)</label>
+      </div>
+      <div class="pvset pwin"><span class="pvset-l">On the player's plan</span>
+        <span class="pw">↔️ Velocity ranges from <input type="date" id="pw-vt-from" aria-label="Velocity ranges shown from"> to <input type="date" id="pw-vt-to" aria-label="Velocity ranges shown until"></span>
+        <span class="pw">🎯 Mode targets from <input type="date" id="pw-mt-from" aria-label="Mode targets shown from"> to <input type="date" id="pw-mt-to" aria-label="Mode targets shown until"></span>
+        <small class="muted">Leave a date blank for no limit on that side (both blank = always shown). Coaches still see both in the Builder and Explore.</small>
       </div>
       <div class="pvset" id="ac-carry"></div>
       <div id="b-banner" class="banner" hidden style="margin-top:12px"></div>
@@ -1455,7 +1468,7 @@ function tlPlyoBox(d, B_, w = 'tl') {
 function dayTip(d, s, e) {
   const rows0 = GROUPS.filter(g => s.r.g[g.id] && s.r.g[g.id].n).map(g => { const gg = s.r.g[g.id]; const est = s.planned || s.r.sr ? '' : gg.estN ? ` <span style="opacity:.75">(${gg.estN === gg.n ? 'all' : gg.estN} est.)</span>` : ''; return `<tr><td><i class="sw" style="background:${g.color}"></i>${g.label}</td><td style="text-align:right">${fmt(gg.wl + gg.est)}</td><td style="text-align:right">${gg.n}${est}</td></tr>`; }).join('');
   const note = (teamNote(d) ? `<div class="tip-tnote">📌 ${esc(teamNote(d))}</div>` : '') + ((S.b && S.b.draft[d] && S.b.draft[d].note) ? `<div class="tip-note">📝 ${esc(S.b.draft[d].note)}</div>` : '');
-  return `${note}<b>${DOW[dow(d)]} ${nice(d)}, ${d.slice(0, 4)}</b> · ${esc(s.t)}${s.planned ? ' · <b>Planned</b>' : s.r && s.r.sr ? ' · <b>Self-reported</b>' : ''}${dayLabel(d) ? ` · <b>${esc(dayLabel(d))}</b>${dayTime(d) ? ` ${esc(dayTime(d))}` : ''}` : ''}${e && e.ac9 !== null && d >= acFrom() ? ` ${acBadge(e, d)}${acCalc(e).replace(/^<br>/, '')}` : (e ? `<br>Chronic workload (EWMA 28): ${fmt(e.e28)} workload units` : '')}${s.planned && S.b && S.b.draft[d] && S.b.draft[d].items.length ? planRowsTable(S.b.draft[d]) : actualRowsTable(d, s)}`;
+  return `${note}<b>${DOW[dow(d)]} ${nice(d)}, ${d.slice(0, 4)}</b> · ${esc(s.t)}${s.planned ? ' · <b>Planned</b>' : s.r && s.r.sr ? ' · <b>Self-reported</b>' : ''}${dayLabel(d) ? ` · <b>${esc(dayLabel(d))}</b>${dayTime(d) ? ` ${esc(dayTime(d))}` : ''}` : ''}${e && e.ac9 !== null && d >= acFrom() ? ` ${acBadge(e, d)}${acCalc(e).replace(/^<br>/, '')}` : (e ? `<br>Chronic workload (EWMA 28): ${fmt(e.e28)} workload units` : '')}${s.planned && S.b && S.b.draft[d] && S.b.draft[d].items.length ? planRowsTable(S.b.draft[d], d) : actualRowsTable(d, s) + mtActualHTML(d)}`;
 }
 function drawDaily(dates, sel, o = {}) {
   const HP = o.hatch || 'h'; const CH = o.chart || 'ch-daily', AL = o.alert || 'ac-alert', AF = o.acFrom || acFrom();
@@ -1671,21 +1684,79 @@ function renderBucketTable(lo, hi) {
 // ---------- mode vs target ----------
 let modeTargets = [];
 const MODE_LABEL = {cp: 'Catch play', mp: 'Moundwork', gbp: 'Game bullpen', lb: 'LIVE BP', gp: 'Game'};
-function targetFor(cat, d) { let t = null; for (const x of modeTargets) if (x.cat === cat && x.from <= d && (!t || x.from >= t.from)) t = x; return t; }
+const MODE_KEYS = ['cp', 'mp', 'gbp', 'lb', 'gp'];
+let SHOW_MT = true; try { SHOW_MT = localStorage.getItem('wl-mt') !== 'off'; } catch (e) {}
+/* fastballs: four-seam, two-seam and sinkers (Trackman / game-file pitch types) */
+const FB_RE = /four|two|sink|fastball|seam|^ff$|^ft$|^si$|^fb$/i;
+const liveType = t => /live\s*bp|sim/i.test(s_(t));
+/* which mode-target group a throw type belongs to on a day */
+function modeKey(c, d, type) { if (c === 'cp') return 'cp'; if (c === 'mw' || c === 'mp') return 'mp'; if (c === 'gbw' || c === 'gbp') return 'gbp'; if (c === 'gw' || c === 'gp') return (d && isLive(d)) || liveType(type) ? 'lb' : 'gp'; return null; }
+const modeWho = k => k === 'cp' ? 'catch-play throws' : 'fastballs';
+/* the target for a group on a day: a single-day override first, then one set for that day type, then one for all days (latest start date wins) */
+function targetFor(cat, d, type) {
+  if (type === undefined) type = S.b && S.b.draft[d] && S.b.draft[d].type && d > lastActual ? S.b.draft[d].type : typeOf(d);
+  const tt = normType(type || ''); let one = null, typed = null, all = null;
+  for (const x of modeTargets) { if (x.cat !== cat) continue;
+    if (x.day) { if (x.day === d) one = x; continue; }
+    if (x.from > d) continue;
+    if (x.dayType) { if (normType(x.dayType) === tt && (!typed || x.from >= typed.from)) typed = x; }
+    else if (!all || x.from >= all.from) all = x; }
+  return one || typed || all;
+}
+/* the actual mode on a day: catch play = every reading; mound / bullpen / LIVE BP / game = fastballs only (all pitches if none are tagged) */
+let THROWS_BY_DAY = null;
+function actualMode(d, key) {
+  if (!THROWS_BY_DAY) { THROWS_BY_DAY = new Map(); for (const t of throws) { const a = THROWS_BY_DAY.get(t[0]); if (a) a.push(t); else THROWS_BY_DAY.set(t[0], [t]); } }
+  const live = isLive(d); if (key === 'lb' && !live) return null; if (key === 'gp' && live) return null;
+  const want = key === 'lb' ? 'gp' : key;
+  let ts = (THROWS_BY_DAY.get(d) || []).filter(t => (REMAP[t[3]] || t[3]) === want && t[4] !== null && t[4] !== undefined && !t[6]); // device readings, not estimates
+  let fb = false, untagged = false;
+  if (key !== 'cp') { const tagged = ts.filter(t => t[5]); if (tagged.length) { ts = tagged.filter(t => FB_RE.test(t[5])); fb = true; } else untagged = ts.length > 0; }
+  if (!ts.length) return null; const h = {}; ts.forEach(t => { const b = Math.round(t[4]); h[b] = (h[b] || 0) + 1; }); const m = histMode(h);
+  return {v: m.v, n: m.n, of: ts.length, fb, untagged, avg: ts.reduce((a, t) => a + t[4], 0) / ts.length};
+}
+function modeTypeOpts(el, first) { const v = el.value; const types = [...new Set(DAY_TYPES.filter(Boolean))]; if (el.dataset.n === String(types.length)) return; el.innerHTML = `<option value="">${first}</option>` + types.map(t => `<option${t === v ? ' selected' : ''}>${esc(t)}</option>`).join(''); el.dataset.n = String(types.length); }
+/* Builder: targets for the groups on a planned day; a value typed here holds for that day only */
+const MT_SHORT = {cp: 'Catch play', mp: 'Moundwork', gbp: 'Game bullpen', lb: 'LIVE BP', gp: 'Game'};
+function dayModeKeys(d, day) { const ks = []; for (const it of day.items || []) { const k = modeKey(itemCat(it, day), d, day.type); if (k && !ks.includes(k)) ks.push(k); } return ks; }
+function standingTarget(k, d, type) { const keep = modeTargets; modeTargets = keep.filter(x => !x.day); try { return targetFor(k, d, type); } finally { modeTargets = keep; } }
+function builderMT(d, day, compact) {
+  if (!SHOW_MT) return ''; const ks = dayModeKeys(d, day); if (!ks.length) return '';
+  if (compact) { const bits = ks.map(k => { const t = targetFor(k, d, day.type); return t ? `${MT_SHORT[k]} ${t.mph}${t.day ? '*' : ''}` : ''; }).filter(Boolean); return bits.length ? `<div class="cmt" title="Mode targets (* = this day only). Change them in Day view.">🎯 ${esc(bits.join(' · '))}</div>` : ''; }
+  return `<div class="bmt"><b>🎯 Mode targets</b>${ks.map(k => { const one = modeTargets.find(x => x.day === d && x.cat === k), st = standingTarget(k, d, day.type);
+    return `<label>${MT_SHORT[k]} <input type="number" class="f-mt" data-d="${d}" data-k="${k}" min="50" max="105" step="1" value="${one ? one.mph : ''}" placeholder="${st ? st.mph : '–'}" aria-label="${MT_SHORT[k]} mode target for ${nice(d)}"> mph</label>`; }).join('')}<span class="muted">Leave blank to use the standing target (shown faded). A number here holds for this day only.</span></div>`;
+}
+/* date windows (Builder → On the player's plan) for showing ranges and targets on a player's plan */
+const inWin = (d, a, b) => (!a || d >= a) && (!b || d <= b);
+const pvShowVT = d => SHOW_VT && inWin(d, PSET.vtFrom, PSET.vtTo);
+const pvShowMT = d => SHOW_MT && inWin(d, PSET.mtFrom, PSET.mtTo);
+const PW_IDS = [['pw-vt-from', 'vtFrom'], ['pw-vt-to', 'vtTo'], ['pw-mt-from', 'mtFrom'], ['pw-mt-to', 'mtTo']];
+function pwinSync() { for (const [id, k] of PW_IDS) { const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = PSET[k] || ''; } }
+const modeDiff = (v, t) => { const df = v - t; return df === 0 ? 'on target' : `${Math.abs(df)} mph ${df > 0 ? 'above' : 'below'}`; };
+/* planned day: one 🎯 line per group, after that group's last line */
+function mtRowHTML(k, t, cols) { return `<tr class="mtrow"><td></td><td colspan="${cols}">🎯 Mode target <b>${t.mph} mph</b> · the speed most ${modeWho(k)} should sit at${t.day ? ' <span style="opacity:.75">(this day only)</span>' : t.dayType ? ` <span style="opacity:.75">(${esc(t.dayType)} days)</span>` : ''}</td></tr>`; }
+/* actual day: mode and target per group */
+function mtActualHTML(d) {
+  if (!SHOW_MT) return '';
+  const out = []; for (const k of MODE_KEYS) { const m = actualMode(d, k), t = targetFor(k, d); if (!m) continue;
+    out.push(`<div class="tip-mt">${esc(MODE_LABEL[k])}: mode <b>${m.v} mph</b> (${m.n} of ${m.of}${k === 'cp' ? '' : m.fb ? ' fastballs' : ' pitches, untagged'})${t ? `<br><span class="${m.v === t.mph ? 'mt-ok' : 'mt-off'}">🎯 Mode target ${t.mph} · ${modeDiff(m.v, t.mph)}</span>` : ''}</div>`); }
+  return out.join('');
+}
 function drawMode(dates, o = {}) {
   const f = o.all ? {types: {has: () => true}, est: true} : S.ex; const catSel = document.getElementById(o.cat || 'm-cat').value; const cat = catSel === 'lb' ? 'gp' : catSel; const set = new Set([cat]);
+  const dtEl = o.cat ? null : document.getElementById('m-dtype'); if (dtEl) modeTypeOpts(dtEl, 'All day types'); const dtSel = dtEl && dtEl.value ? normType(dtEl.value) : '';
   const pts = [];
   for (const d of dates) {
     if (!f.types.has(groupOf(d))) continue;
-    if (catSel === 'lb' ? !isLive(d) : (cat === 'gp' && isLive(d))) continue;
-    const o = dayDetail(d, set, f.est)[cat]; if (!o || !o.vn) continue;
-    const md = histMode(o.hist); pts.push({d, mode: md.v, modeN: md.n, avg: o.vs / o.vn, n: o.vn, t: targetFor(catSel, d)});
+    if (dtSel && normType(typeOf(d)) !== dtSel) continue;
+    const md = actualMode(d, catSel); if (!md) continue;
+    pts.push({d, mode: md.v, modeN: md.n, avg: md.avg, n: md.of, fb: md.fb, t: targetFor(catSel, d)});
   }
   const col = CTX_BY[cat].color;
   document.getElementById(o.lg || 'lg-mode').innerHTML = `<span><svg width="18" height="10" aria-hidden="true"><line x1="0" x2="18" y1="5" y2="5" stroke="${col}" stroke-width="2"/><circle cx="9" cy="5" r="3.5" fill="${col}"/></svg>Mode</span><span><svg width="18" height="10" aria-hidden="true"><line x1="0" x2="18" y1="5" y2="5" stroke="${col}" stroke-opacity=".45" stroke-width="2"/></svg>Average</span><span><svg width="18" height="10" aria-hidden="true"><line x1="0" x2="18" y1="5" y2="5" stroke="var(--ink)" stroke-dasharray="4 3" stroke-width="1.6"/></svg>Target</span>`;
   const el = document.getElementById(o.ch || 'ch-mode');
   document.getElementById(o.scope || 'm-scope').textContent = `${pts.length} days with readings`;
-  if (!pts.length) { el.innerHTML = '<p class="note">No velocity readings for this throw type in the selected days.</p>'; return; }
+  if (!pts.length) { el.innerHTML = '<p class="note">No velocity readings for this throw type in the selected days.</p>'; renderTargets(); return; }
   const tv = dates.map(d => targetFor(catSel, d)).filter(Boolean).map(t => t.mph);
   const vals = pts.flatMap(p => [p.mode, p.avg]).concat(tv);
   const vmin = Math.floor((Math.min(...vals) - 3) / 5) * 5, vmax = Math.ceil((Math.max(...vals) + 3) / 5) * 5;
@@ -1701,7 +1772,7 @@ function drawMode(dates, o = {}) {
   let marks = '';
   for (const p of pts) {
     const diff = p.t ? p.mode - p.t.mph : null;
-    const tipH = `<b>${DOW[dow(p.d)]} ${nice(p.d)}, ${p.d.slice(0, 4)}</b> · ${esc(typeOf(p.d))}<br>Mode ${p.mode} mph (${p.modeN} of ${p.n} throws)<br>Average ${fmt(p.avg, 1)} mph${p.t ? `<br>Target ${p.t.mph} mph · ${diff === 0 ? 'on target' : (diff > 0 ? '+' : '') + diff + ' mph'}${p.t.note ? `<br><span style="opacity:.75">${esc(p.t.note)}</span>` : ''}` : '<br>No target set'}`;
+    const tipH = `<b>${DOW[dow(p.d)]} ${nice(p.d)}, ${p.d.slice(0, 4)}</b> · ${esc(typeOf(p.d))}<br>Mode ${p.mode} mph (${p.modeN} of ${p.n} ${catSel === 'cp' ? 'throws' : p.fb ? 'fastballs' : 'pitches, untagged'})<br>Average ${fmt(p.avg, 1)} mph${p.t ? `<br>🎯 Target ${p.t.mph} mph${p.t.day ? ' (this day only)' : p.t.dayType ? ` (${esc(p.t.dayType)} days)` : ''} · ${diff === 0 ? 'on target' : (diff > 0 ? '+' : '') + diff + ' mph'}${p.t.note ? `<br><span style="opacity:.75">${esc(p.t.note)}</span>` : ''}` : '<br>No target set'}`;
     marks += `<g data-tip="${esc(tipH)}"><circle cx="${x(p.d).toFixed(1)}" cy="${y(p.mode).toFixed(1)}" r="4" fill="${col}" stroke="var(--surface)" stroke-width="1"/><rect x="${(x(p.d) - bw / 2).toFixed(1)}" y="${m.t}" width="${bw}" height="${H - m.t - m.b}" fill="transparent"/></g>`;
     if (showLabels) marks += `<text class="barval" x="${x(p.d).toFixed(1)}" y="${(y(p.mode) - 8).toFixed(1)}" text-anchor="middle" pointer-events="none">${p.mode}</text>`;
   }
@@ -1711,8 +1782,9 @@ function drawMode(dates, o = {}) {
 }
 function renderTargets() {
   const cat = document.getElementById('m-cat').value;
-  const list = modeTargets.filter(t => t.cat === cat).sort((a, b) => a.from < b.from ? 1 : -1);
-  document.getElementById('m-targets').innerHTML = list.length ? `<thead><tr><th>Starting</th><th class="n">Target mph</th><th>Note</th><th></th></tr></thead><tbody>${list.map(t => `<tr><td>${nice(t.from)}, ${t.from.slice(0, 4)}</td><td class="n">${t.mph}</td><td>${esc(t.note || '')}</td><td><button type="button" class="ghost" data-del-target="${esc(t.id)}" aria-label="Remove target">✕</button></td></tr>`).join('')}</tbody>` : `<tbody><tr><td class="muted">No targets for ${MODE_LABEL[cat]} yet.</td></tr></tbody>`;
+  const tEl = document.getElementById('m-tdtype'); if (tEl) modeTypeOpts(tEl, 'All day types');
+  const list = modeTargets.filter(t => t.cat === cat).sort((a, b) => (a.day ? 1 : 0) - (b.day ? 1 : 0) || (a.from < b.from ? 1 : -1));
+  document.getElementById('m-targets').innerHTML = list.length ? `<thead><tr><th>Starting</th><th>On</th><th class="n">Target mph</th><th>Note</th><th></th></tr></thead><tbody>${list.map(t => `<tr><td>${nice(t.from)}, ${t.from.slice(0, 4)}</td><td>${t.day ? 'This day only (Builder)' : t.dayType ? esc(t.dayType) + ' days' : 'All days'}</td><td class="n">${t.mph}</td><td>${esc(t.note || '')}</td><td><button type="button" class="ghost" data-del-target="${esc(t.id)}" aria-label="Remove target">✕</button></td></tr>`).join('')}</tbody>` : `<tbody><tr><td class="muted">No targets for ${MODE_LABEL[cat]} yet.</td></tr></tbody>`;
 }
 function setupPitchTable() {
   document.getElementById('pt-table').addEventListener('click', e => { const b = e.target.closest('.sec-tog'); if (b) setPtOpen(b.dataset.sec, !ptOpen.has(b.dataset.sec)); });
@@ -1722,13 +1794,14 @@ function setupPitchTable() {
 }
 function setupMode() {
   document.getElementById('m-from').value = S.ex.from;
+  document.getElementById('m-dtype').addEventListener('change', () => { const lo = S.ex.from <= S.ex.to ? S.ex.from : S.ex.to, hi = S.ex.from <= S.ex.to ? S.ex.to : S.ex.from; drawMode(dateRange(lo, hi)); });
   document.getElementById('m-cat').addEventListener('change', () => { const lo = S.ex.from <= S.ex.to ? S.ex.from : S.ex.to, hi = S.ex.from <= S.ex.to ? S.ex.to : S.ex.from; drawMode(dateRange(lo, hi)); });
   const st = (msg, k = '') => { const e = document.getElementById('m-status'); e.textContent = msg; e.className = 'status ' + k; };
   document.getElementById('m-save').addEventListener('click', async () => {
     if (!db) { st('Saving targets needs the shared store, which works when this page is opened signed in to claude.ai.', 'err'); return; }
     const mph = parseInt(document.getElementById('m-mph').value, 10), from = document.getElementById('m-from').value, note = document.getElementById('m-tnote').value.trim(), cat = document.getElementById('m-cat').value;
-    if (!(mph >= 40 && mph <= 105) || !from) { st('Enter a target between 40 and 105 mph and a start date.', 'err'); return; }
-    try { await db.collection(col('modeTargets')).add({pitcher: PITCHER, cat, from, mph, note, savedAt: new Date().toISOString(), by: me || null}); st(`Target of ${mph} mph set for ${MODE_LABEL[cat]} from ${nice(from)}.`, 'ok'); document.getElementById('m-tnote').value = ''; }
+    if (!(mph >= 50 && mph <= 105) || !from) { st('Enter a target between 50 and 105 mph and a start date.', 'err'); return; }
+    try { const dayType = (document.getElementById('m-tdtype') || {}).value || ''; await db.collection(col('modeTargets')).add({pitcher: PITCHER, cat, from, mph, note, dayType, day: '', savedAt: new Date().toISOString(), by: me || null}); st(`Target of ${mph} mph set for ${MODE_LABEL[cat]}${(document.getElementById('m-tdtype') || {}).value ? ' on ' + document.getElementById('m-tdtype').value + ' days' : ''} from ${nice(from)}.`, 'ok'); document.getElementById('m-tnote').value = ''; }
     catch (e) { st('Could not save the target. You may only have view access to this page.', 'err'); }
   });
   document.getElementById('m-targets').addEventListener('click', async e => {
@@ -1952,7 +2025,7 @@ function renderDayCompact(date) {
     <div class="nums cnums" data-nums="${date}">${dayNums(date)}</div>
     ${teamNote(date) ? `<div class="tnote" title="Team note from the schedule sheet">📌 ${esc(teamNote(date))}</div>` : ''}
     <textarea class="f-note ${day.note ? 'has' : ''}" data-d="${date}" rows="2" placeholder="+ Note" aria-label="Notes for ${nice(date)}">${esc(day.note || '')}</textarea>
-    ${mergeLines(date, day, item, gi => item(gi, 'G'))}${ghostToggle(date, day)}
+    ${builderMT(date, day, B.mode !== 'day')}${mergeLines(date, day, item, gi => item(gi, 'G'))}${ghostToggle(date, day)}
     ${day.items.length ? `<div class="etot" data-tot="${date}"${big0 ? '' : ' data-compact="1"'}>${editTotals(date, !big0)}</div>` : ''}
     <select class="f-add" data-d="${date}" aria-label="Add a throw"><option value="" selected disabled hidden>+ Add a throw…</option>${CTX.map(c => `<option value="${c.id}">${c.label}</option>`).join('')}</select>
   </div>`;
@@ -1969,6 +2042,7 @@ function renderDayFull(date) {
       <div class="nums" data-nums="${date}">${dayNums(date)}</div></div>
     ${teamNote(date) ? `<div class="daynote"><div class="tnote" title="Team note from the schedule sheet">📌 ${esc(teamNote(date))}</div></div>` : ''}
     <div class="daynote"><textarea class="f-note ${day.note ? 'has' : ''}" data-d="${date}" rows="2" placeholder="Notes for this day: reminders, extra directions…" aria-label="Notes for ${nice(date)}">${esc(day.note || '')}</textarea></div>
+    <div class="daynote">${builderMT(date, day)}</div>
     <div class="items">${(() => { const rows = mergeLines(date, day, (it, i) => itemRow(date, i, it), gi => itemRow(date, 'G', gi)); return rows ? `<div class="tablewrap"><table><thead><tr><th>Throw</th><th>Detail</th><th>Ball</th><th>Count</th><th>Intensity</th><th class="n">WL units</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<span class="muted">No throws planned.</span>'; })()}${ghostToggle(date, day)}${day.items.length ? `<div class="etot" data-tot="${date}">${editTotals(date)}</div>` : ''}
       <div class="addrow"><select class="f-add" data-d="${date}" aria-label="Add a throw"><option value="" selected disabled hidden>+ Add a throw…</option>${CTX.map(c => `<option value="${c.id}">${c.label}</option>`).join('')}</select></div></div>
   </div>`;
@@ -2097,23 +2171,25 @@ function moundLine(day) {
 function dayPlanTip(d, day) {
   if (!day || !day.items.length) return `<b>${DOW[dow(d)]} ${nice(d)}</b> · ${esc(day ? (day.type || 'No day type') : 'Nothing planned')}<br>No throws planned.`;
   const ml = moundLine(day).replace(/\n/g, ' · ');
-  return `${teamNote(d) ? `<div class="tip-tnote">📌 ${esc(teamNote(d))}</div>` : ''}<b>${DOW[dow(d)]} ${nice(d)}</b> · ${esc(day.type || 'No day type')}${ml ? ` · ${esc(ml)}` : ''}${planRowsTable(day)}`;
+  return `${teamNote(d) ? `<div class="tip-tnote">📌 ${esc(teamNote(d))}</div>` : ''}<b>${DOW[dow(d)]} ${nice(d)}</b> · ${esc(day.type || 'No day type')}${ml ? ` · ${esc(ml)}` : ''}${planRowsTable(day, d)}`;
 }
 const TIP_HEAD = '<thead><tr><th>Throw</th><th>Detail</th><th style="text-align:right">Ups</th><th style="text-align:right">Throws</th><th style="text-align:right">Int</th><th style="text-align:right">WL units</th></tr></thead>';
 /* One line per throw, as on the Builder calendar */
-function planRowsTable(day) {
-  let prevC = null;
-  const rows = day.items.map(it => {
+function planRowsTable(day, d) {
+  let prevC = null; const keys = day.items.map(it => modeKey(itemCat(it, day), d, day.type)); const lastOf = {}; keys.forEach((k, i) => { if (k) lastOf[k] = i; });
+  const rows = day.items.map((it, ii) => {
     const c = itemCat(it, day); const sw = `<i class="sw" style="background:${CTX_BY[c].color}"></i>`;
     const first = c !== prevC; prevC = c; // name a throw type once, on its first row
     // Throw = the category name; Detail = only what the editor's Detail picker holds (drill + ball, distance, T&F/Side)
     const sv = subValue(it, c);
     const detail = isPlyoCat(c) ? `${esc(it.name)} <span style="opacity:.7">${esc((BALL_LABEL[it.ball] || it.ball).replace(/ \d+ g$/, ''))}</span>` : SUBTYPES[c] ? esc(BAND_LABEL[sv] || sv) : '';
     const oz = it.kind === 'ball' && it.oz && it.oz !== 5 ? ` <span style="opacity:.7">${it.oz} oz</span>` : '';
-    const vt = vtFor(it, day); const tg = vt ? ` <span class="tip-vt">🎯 ${vt}</span>` : '';
+    const vt = vtFor(it, day); const tg = vt ? ` <span class="tip-vt">↔️ ${vt}</span>` : '';
     const ups = it.kind === 'game' ? (it.ups ? `${it.ups} inn` : '') : (c === 'mp' || c === 'gbp') && it.ups ? `${it.ups} up${it.ups === 1 ? '' : 's'}` : '';
     const n = it.kind === 'game' ? `${+it.pitches || 0}p` : it.perUp ? `${+it.n || 0} × ${upsFor(day, c)} = ${effN(it, day)}` : (+it.n || 0);
-    return `<tr${first ? '' : ' class="cont"'}><td>${sw}${first ? esc(CTX_BY[c].label) : ''}</td><td>${detail}${oz}${tg}</td><td style="text-align:right">${ups}</td><td style="text-align:right">${n}</td><td style="text-align:right">${it.kind === 'game' ? '' : (it.i ?? '–')}</td><td style="text-align:right">${fmt(itemWL(it, day))}</td></tr>`;
+    const tr = `<tr${first ? '' : ' class="cont"'}><td>${sw}${first ? esc(CTX_BY[c].label) : ''}</td><td>${detail}${oz}${tg}</td><td style="text-align:right">${ups}</td><td style="text-align:right">${n}</td><td style="text-align:right">${it.kind === 'game' ? '' : (it.i ?? '–')}</td><td style="text-align:right">${fmt(itemWL(it, day))}</td></tr>`;
+    const kk = keys[ii], tgt = SHOW_MT && d && kk && lastOf[kk] === ii ? targetFor(kk, d, day.type) : null;
+    return tr + (tgt ? mtRowHTML(kk, tgt, 5) : '');
   }).join('');
   const sp = splitPlanned(day);
   return `<table>${TIP_HEAD}<tbody>${rows}${splitRows(sp.wuN, sp.wuW, sp.oN, sp.oW)}</tbody></table>`;
@@ -2659,6 +2735,9 @@ function setupBuilder() {
   }
   document.getElementById('lg-bdaily').innerHTML = document.getElementById('lg-daily').innerHTML.replace('>Estimated<', '>Estimated or planned<').replaceAll('id="h-', 'id="blg-').replaceAll('url(#h-', 'url(#blg-'); bindTips(document.getElementById('lg-bdaily'));
   document.getElementById('lg-bthrows').innerHTML = document.getElementById('lg-throws').innerHTML.replace('>Estimated<', '>Estimated or planned<');
+  for (const [id, k] of PW_IDS) { const el = document.getElementById(id); el.value = PSET[k] || ''; el.addEventListener('change', () => { PSET[k] = el.value || ''; const a = k.slice(0, 2);
+    if (PSET[a + 'From'] && PSET[a + 'To'] && PSET[a + 'From'] > PSET[a + 'To']) { setStatus('The "from" date is after the "to" date.', 'err'); return; }
+    savePset(); setStatus(`Player's plan: ${a === 'vt' ? '↔️ velocity ranges' : '🎯 mode targets'} ${PSET[a + 'From'] || PSET[a + 'To'] ? `shown ${PSET[a + 'From'] ? 'from ' + nice(PSET[a + 'From']) : ''}${PSET[a + 'To'] ? ' until ' + nice(PSET[a + 'To']) : ''}` : 'always shown'}.`, 'ok'); if (S.view === 'player') renderPlayer(); }); }
   for (const [id, k] of [['ps-proj', 'proj'], ['ps-act', 'act'], ['ps-mode', 'mode']]) { const cb = document.getElementById(id); cb.checked = PSET[k]; cb.addEventListener('change', () => { PSET[k] = cb.checked; savePset(); setStatus(`Player screen: ${cb.parentElement.textContent.trim()} ${cb.checked ? 'shown' : 'hidden'}.`, 'ok'); }); }
   const bd = document.getElementById('b-blank-date'); bd.value = B.sel || TODAY;
   document.getElementById('b-blank').addEventListener('click', () => {
@@ -2749,6 +2828,12 @@ function setupBuilder() {
     setTimeout(() => { redrawDay(g.d); if (sig && sig.cls) { const q = `.day[data-date="${g.d}"] .${sig.cls}` + (sig.i !== undefined ? `[data-i="${sig.i}"]` : sig.g ? `[data-g="${sig.g}"]` : ''); const el = days.querySelector(q); if (el) el.focus(); } }, 0);
   });
   days.addEventListener('change', e => {
+    if (e.target.classList.contains('f-mt')) { const t = e.target, d = t.dataset.d, k = t.dataset.k, id = `mt-${k}-${d}`, v = t.value === '' ? null : Math.round(+t.value);
+      if (!db) { setStatus('Saving a mode target needs to be signed in.', 'err'); return; }
+      if (v !== null && !(v >= 50 && v <= 105)) { setStatus('Enter a mode target between 50 and 105 mph.', 'err'); return; }
+      (v === null ? db.collection(col('modeTargets')).doc(id).delete() : db.collection(col('modeTargets')).doc(id).set({pitcher: PITCHER, cat: k, from: d, day: d, mph: v, dayType: '', note: 'This day only', savedAt: new Date().toISOString(), by: me || null}))
+        .then(() => setStatus(v === null ? `${MT_SHORT[k]} on ${nice(d)} uses the standing target again.` : `🎯 ${MT_SHORT[k]} mode target ${v} mph on ${nice(d)} (this day only).`, 'ok')).catch(() => setStatus('Could not save the mode target.', 'err'));
+      return; }
     if (redrawing) return;
     const t = e.target; const d = t.dataset.d; if (!d) return;
     if (t.dataset.g) { const k = t.dataset.g;
@@ -3355,7 +3440,7 @@ async function connectStore() {
     if (user) { try { me = await user.id(); } catch (e) {} }
   } catch (e) { db = null; }
   if (!db) { setStatus('Plan versions can be edited here; saving them needs the shared store, which works when this page is opened signed in to claude.ai.'); return; }
-  db.collection(col('playerSettings')).onSnapshot(snap => { const d0 = snap.docs.find(x => x.id === 'will' && x.exists); if (d0) { const v = d0.data(); PSET = {proj: v.proj !== false, act: v.act !== false, mode: !!v.mode, acCarry: Array.isArray(v.acCarry) ? v.acCarry : []}; updAcRestarts(); if (S.view === 'builder') { renderWeek(); renderForecast(); } for (const [id, k] of [['ps-proj', 'proj'], ['ps-act', 'act'], ['ps-mode', 'mode']]) { const cb = document.getElementById(id); if (cb) cb.checked = PSET[k]; } if (S.view === 'player') renderPlayer(); } }, () => {});
+  db.collection(col('playerSettings')).onSnapshot(snap => { const d0 = snap.docs.find(x => x.id === 'will' && x.exists); if (d0) { const v = d0.data(); PSET = {proj: v.proj !== false, act: v.act !== false, mode: !!v.mode, acCarry: Array.isArray(v.acCarry) ? v.acCarry : [], vtFrom: v.vtFrom || '', vtTo: v.vtTo || '', mtFrom: v.mtFrom || '', mtTo: v.mtTo || ''}; pwinSync(); updAcRestarts(); if (S.view === 'builder') { renderWeek(); renderForecast(); } for (const [id, k] of [['ps-proj', 'proj'], ['ps-act', 'act'], ['ps-mode', 'mode']]) { const cb = document.getElementById(id); if (cb) cb.checked = PSET[k]; } if (S.view === 'player') renderPlayer(); } }, () => {});
   db.collection(col('weekCounts')).onSnapshot(snap => { const d0 = snap.docs.find(x => x.id === 'main' && x.exists); WEEK_RESETS = d0 && Array.isArray(d0.data().resets) ? d0.data().resets.filter(r => r && /^\d{4}-\d\d-\d\d$/.test(r.week)) : []; if (S.view === 'builder') { if (B.mode === 'month') renderMonth(); else renderWeek(); renderWkResetBtn(); } }, () => {});
   db.collection(col('selfReports')).onSnapshot(snap => { selfReports = new Map(snap.docs.filter(x => x.exists).map(x => [x.id, x.data()]).filter(([, v]) => v && Array.isArray(v.items))); reportsChanged(); }, () => {});
   db.collection(col('plyoDrills')).onSnapshot(snap => { const d0 = snap.docs.find(x => x.id === 'will' && x.exists); if (d0) { CUSTOM_DRILLS = (d0.data().names || []).filter(n => typeof n === 'string'); } }, () => {});
@@ -3387,7 +3472,7 @@ let rendered = {};
 window.__t = {get S() { return S; }, addReport: (d, r) => { selfReports.set(d, r); reportsChanged(); }};
 function reportsChanged() { AGG = buildAgg(S.max); if (S.view === 'player' && !PV.reporting) renderPlayer(); if (S.view === 'explore') renderExplore(); if (S.view === 'builder') { renderWeek(); renderForecast(); } }
 const PV = {date: null, reporting: false, draft: null, mode: 'day', month: null};
-let PSET = {proj: true, act: true, mode: false, acCarry: []}; // what this pitcher's screen shows; coaches change it in Builder
+let PSET = {proj: true, act: true, mode: false, acCarry: [], vtFrom: '', vtTo: '', mtFrom: '', mtTo: ''}; // what this pitcher's screen shows; coaches change it in Builder
 async function savePset() { if (!db) return; try { await db.collection(col('playerSettings')).doc('will').set(PSET); } catch (e) {} }
 const TYPE_ABBR = {'Off': 'OFF', 'Plyo Recovery': 'P-REC', 'Recovery': 'REC', 'Low Moderate': 'L-MOD', 'Moderate': 'MOD', 'Moderate-High': 'M-HI', 'Touch & Feel': 'T&F', 'High': 'HIGH', 'Side': 'SIDE', 'Live BP': 'LIVE', 'Game': 'GAME', 'Rehab Game': 'REHAB', 'TP-60': 'TP60', 'TP-75': 'TP75', 'TP-90': 'TP90', 'TP-105': 'TP105', 'TP-120': 'TP120'};
 // ACWR from actuals (device or self-reported) through the day before, then the plan
@@ -3401,15 +3486,17 @@ function pvVeloCard() {
   if (AVG_FB === null) return `<div class="pv-card pv-vb"><b>Velocity targets</b><p class="muted" style="margin:4px 0 0">${isCoach() ? 'Add this pitcher\'s average fastball (avg_fastball_mph) on the Master file\'s Pitchers tab to show velocity targets.' : 'Your coach hasn\'t set your velocity targets yet.'}</p></div>`;
   const row = b => `<div class="vb-row"><span>${b.below ? `<i class="vb-ball" style="background:${BALL_HEX[b.k] || '#ccc'}"></i>` : ''}${esc(b.label.replace(/ plyo ball$/i, ''))}</span><b>${bandText(b)}</b></div>`;
   const cp = VBANDS.filter(b => !b.below), pl = VBANDS.filter(b => b.below);
-  return `<div class="pv-card pv-vb"><div class="vb-head"><b>Velocity targets</b><span class="muted">from your average fastball, <b>${fmt(AVG_FB, 1)} mph</b></span></div>
+  return `<div class="pv-card pv-vb"><div class="vb-head"><b>↔️ Velocity ranges</b><span class="muted">from your average fastball, <b>${fmt(AVG_FB, 1)} mph</b></span></div>
     <div class="vb-grid"><div><div class="vb-sub">Catch play &amp; mound</div>${cp.map(row).join('')}</div><div><div class="vb-sub">Plyo balls · high intensity</div>${pl.map(row).join('')}</div></div></div>`;
 }
 const BALL_HEX = {black: '#111', pink: '#f4a6c8', green: '#3b9a4b', maroon: '#7a1f2b', blue: '#2f6bd8', orange: '#f08a24', purple: '#7a4fc4', red: '#e02424', yellow: '#f3d317', gray: '#9a9a9a', grey: '#9a9a9a'};
-function pvItems(day) {
+function pvItems(day, d) {
   if (!day) return '';
-  let prevC = null;
+  let prevC = null; const shownMT = new Set();
   return day.items.map(it => {
     const c = itemCat(it, day); const first = c !== prevC; prevC = c;
+    const mk = modeKey(c, d, day.type), mt = d && pvShowMT(d) && mk && !shownMT.has(mk) ? targetFor(mk, d, day.type) : null; if (mt) shownMT.add(mk);
+    const mtBox = mt ? `<div class="pv-mt">🎯 Mode target <b>${mt.mph} mph</b><small>Most of your ${modeWho(mk)} ${mk === 'cp' ? '' : 'in ' + esc(MODE_LABEL[mk].toLowerCase()) + ' '}today should land here.</small></div>` : '';
     const sv = subValue(it, c);
     const detail = isPlyoCat(c) ? `${esc(it.name)} · ${esc((BALL_LABEL[it.ball] || it.ball).replace(/ \d+ g$/, ''))}` : SUBTYPES[c] ? esc(BAND_LABEL[sv] || sv) : '';
     const oz = it.kind === 'ball' && it.oz && it.oz !== 5 ? ` · ${it.oz} oz` : '';
@@ -3419,8 +3506,8 @@ function pvItems(day) {
     else count = `<b>${+it.n || 0}</b><small>${(c === 'mp' || c === 'gbp') && it.ups ? `${it.ups} up${it.ups === 1 ? '' : 's'}` : 'throws'}</small>`;
     const inten = it.kind === 'game' || it.i === null || it.i === undefined ? '' : `<span class="pv-int">Intensity ${it.i}</span> <span class="muted">${esc(INT_DESC[it.i] || '')}</span>`;
     const fill = needsFill(it) ? '<div class="pv-fill">⚠ Warmup count to be set by your coach</div>' : '';
-    const vb = vtFor(it, day); const velo = vb ? `<div class="pv-velo">🎯 ${vb}</div>` : '';
-    return `${first ? `<div class="pv-cat"><i class="sw" style="background:${CTX_BY[c].color}"></i>${esc(CTX_BY[c].label)}</div>` : ''}<div class="pv-row" style="border-left-color:${CTX_BY[c].color}"><div class="pv-l">${detail || oz ? `<div class="pv-what">${detail}${oz}</div>` : ''}${inten ? `<div class="pv-i">${inten}</div>` : ''}${velo}${fill}</div><div class="pv-n">${count}</div></div>`;
+    const vb = !d || pvShowVT(d) ? vtFor(it, day) : ''; const velo = vb ? `<div class="pv-velo">↔️ ${vb}</div>` : '';
+    return `${first ? `<div class="pv-cat"><i class="sw" style="background:${CTX_BY[c].color}"></i>${esc(CTX_BY[c].label)}</div>` : ''}${mtBox}<div class="pv-row" style="border-left-color:${CTX_BY[c].color}"><div class="pv-l">${detail || oz ? `<div class="pv-what">${detail}${oz}</div>` : ''}${inten ? `<div class="pv-i">${inten}</div>` : ''}${velo}${fill}</div><div class="pv-n">${count}</div></div>`;
   }).join('');
 }
 // How the player feels: four areas, 1-5 (5 = great), plus one note for the day
@@ -3536,10 +3623,10 @@ function renderPlayerInner() {
       ${teamNote(d) ? `<div class="pv-tnote">📌 ${esc(teamNote(d))}</div>` : ''}
       ${day && day.note ? `<div class="pv-note">📝 ${esc(day.note)}</div>` : ''}
       ${ml ? `<div class="pv-mound">${ml.split('\\n').map(esc).join('<br>')}</div>` : ''}
-      ${day && day.items.length ? pvItems(day) : '<p class="muted">No throwing planned. Rest up.</p>'}
+      ${day && day.items.length ? pvItems(day, d) : '<p class="muted">No throwing planned. Rest up.</p>'}
       ${planN ? `${psp.wuN ? `<div class="pv-total"><span>Plyo warmup total</span><span class="pv-tn"><b>${psp.wuN}</b><small>throws</small></span></div>` : ''}<div class="pv-total"${psp.wuN ? ' style="margin-top:4px;border-top:0;padding-top:0"' : ''}><span>All other throws</span><span class="pv-tn"><b>${psp.oN}</b><small>throws</small></span></div>` : ''}
     </div>
-    ${PV.reporting || !SHOW_VT ? '' : pvVeloCard()}
+    ${PV.reporting || !pvShowVT(PV.date) ? '' : pvVeloCard()}
     ${PV.reporting ? pvReportForm(d, day) : `<div class="pv-card pv-rep">
       ${rep0 ? `<div><b>✓ ${rep0.noThrow ? 'You logged no throwing' : `You reported ${rep0.items.reduce((s, r) => s + (+r.n || 0), 0)} throws`}</b> <span class="muted">· ${esc(rep0.when || '')}</span></div>${feelLine(rep0)}` : `<div class="muted">${d > pvToday() ? 'You can report this day once it happens.' : 'No report yet for this day.'}</div>`}
       ${meas ? `<div class="pv-meas">Measured by radar/Trackman: <b>${meas.n}</b> throws</div>` : ''}
@@ -3607,6 +3694,7 @@ maxInput.addEventListener('change', () => { maxTouched = true; applyMax(parseFlo
 /* average fastball: drives the velocity targets */
 function syncFb() { const i = document.getElementById('fbv'), r = document.getElementById('fbreset'); if (!i) return; i.value = AVG_FB === null ? '' : AVG_FB.toFixed(1); r.hidden = !fbTouched || MASTER_FB === null; r.textContent = `Reset to ${MASTER_FB === null ? '' : MASTER_FB.toFixed(1)}`; }
 document.getElementById('fbv').addEventListener('change', e => { const v = parseFloat(e.target.value); if (e.target.value === '') { fbTouched = true; AVG_FB = null; } else if (v >= 60 && v <= 110) { fbTouched = true; AVG_FB = v; } syncFb(); if (S.view === 'player') renderPlayer(); if (S.view === 'builder') { renderWeek(); renderForecast(); } if (S.view === 'explore') renderExplore(); });
+{ const cm = document.getElementById('mt-on'); cm.checked = SHOW_MT; cm.addEventListener('change', () => { SHOW_MT = cm.checked; try { localStorage.setItem('wl-mt', SHOW_MT ? 'on' : 'off'); } catch (e) {} if (S.view === 'player') renderPlayer(); if (S.view === 'builder') { renderWeek(); renderForecast(); } if (S.view === 'explore') renderExplore(); }); }
 { const cb = document.getElementById('vt-on'); cb.checked = SHOW_VT; cb.addEventListener('change', () => { SHOW_VT = cb.checked; try { localStorage.setItem('wl-vt', SHOW_VT ? 'on' : 'off'); } catch (e) {} if (S.view === 'player') renderPlayer(); if (S.view === 'builder') { renderWeek(); renderForecast(); } if (S.view === 'explore') renderExplore(); }); }
 document.getElementById('fbreset').addEventListener('click', () => { fbTouched = false; AVG_FB = MASTER_FB; syncFb(); if (S.view === 'player') renderPlayer(); if (S.view === 'builder') { renderWeek(); renderForecast(); } if (S.view === 'explore') renderExplore(); });
 syncFb();
