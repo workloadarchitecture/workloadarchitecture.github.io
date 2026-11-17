@@ -1870,15 +1870,21 @@ let db = null, me = null;
 const B = S.b;
 // Days copied earlier in this browser, possibly from another pitcher (survives switching pitchers)
 try { const c = JSON.parse(localStorage.getItem('wl-clip') || 'null'); if (c && Array.isArray(c.days) && c.days.length && Array.isArray(c.from)) { B.clip = c.days.map(x => ({type: normType(x.type || ''), note: x.note || '', items: Array.isArray(x.items) ? x.items : []})); B.clipFrom = c.from; B.clipPitcher = c.pitcher; B.clipName = c.name; } } catch (e) {}
-const curVersion = () => versions.find(v => v.id === B.versionId) || V1;
+/* each season keeps its own versions: the Builder opens a season on the newest version that has days in it */
+const BLANK_V = {id: 'blank', n: null, label: 'No plan yet for this season', reason: '', days: {}};
+const curVersion = () => versions.find(v => v.id === B.versionId) || (B.versionId === 'blank' ? BLANK_V : V1);
+const vInSeason = (v, cs) => !!cs && Object.keys(v.days || {}).some(d => d >= cs.start && d <= cs.end);
+function seasonVersions() { const cs = curSeason(); return versions.filter(v => vInSeason(v, cs)).sort((a, b) => a.n - b.n); }
+function pickSeasonVersion() { const vs = seasonVersions(); return vs.length ? vs[vs.length - 1].id : 'blank'; }
 const cmpVersion = () => versions.find(v => v.id === B.compareId) || null;
 function planBounds() { const ds = Object.keys(B.draft).sort(); const f = B.sel || TODAY; return [ds[0] || f, ds[ds.length - 1] || f]; }
 function setStatus(msg, kind = '') { const el = document.getElementById('b-status'); el.textContent = msg; el.className = 'status ' + kind; }
 function markDirty() { B.dirty = true; B.editCheck = true; document.getElementById('b-save').disabled = !db; document.getElementById('b-discard').disabled = false; if (!db) setStatus('Unsaved changes. Saving needs the shared store, which works when this page is opened signed in to claude.ai.'); }
 function renderVersionSelects() {
   const opt = (v, sel) => `<option value="${v.id}" ${v.id === sel ? 'selected' : ''}>${esc(v.label)}</option>`;
-  document.getElementById('b-version').innerHTML = versions.map(v => opt(v, B.versionId)).join('');
-  document.getElementById('b-compare').innerHTML = `<option value="">None</option>` + versions.filter(v => v.id !== B.versionId).map(v => opt(v, B.compareId)).join('');
+  let list = seasonVersions(); const cur = curVersion(); if (!list.includes(cur)) list = list.concat([cur]); /* this season's versions (and the one open, if picked from another season) */
+  document.getElementById('b-version').innerHTML = list.map(v => opt(v, B.versionId)).join('');
+  document.getElementById('b-compare').innerHTML = `<option value="">None</option>` + list.filter(v => v.id !== B.versionId && v.id !== 'blank').map(v => opt(v, B.compareId)).join('');
 }
 function itemRow(date, idx, it) {
   const dayObj = B.draft[date]; const c = itemCat(it, dayObj);
@@ -2986,12 +2992,12 @@ async function saveVersion() {
   const btn = document.getElementById('b-save'); btn.disabled = true;
   const n = Math.max(...versions.map(v => v.n)) + 1;
   const reason = document.getElementById('b-reason').value.trim();
-  const body = {n, reason, basedOn: curVersion().n, savedAt: new Date().toISOString(), by: me || null, days: B.draft};
+  const body = {n, reason, basedOn: curVersion().n || null, savedAt: new Date().toISOString(), by: me || null, days: B.draft};
   try {
     await db.collection(col('planVersions')).doc('v' + n).set(body);
     B.versionId = 'v' + n; B.dirty = false; document.getElementById('b-discard').disabled = true; document.getElementById('b-reason').value = '';
     if (versions.find(v => v.id === B.versionId)) renderVersionSelects();
-    setStatus(`Saved as version ${n}. Version ${body.basedOn} is unchanged.`, 'ok');
+    setStatus(body.basedOn ? `Saved as version ${n}. Version ${body.basedOn} is unchanged.` : `Saved as version ${n}.`, 'ok');
   } catch (err) {
     btn.disabled = false;
     setStatus(err && err.code === 'quota_exceeded' ? 'The store is full, so this version was not saved.' : 'Could not save this version. You may only have view access to this page; ask the owner for Contributor access.', 'err');
@@ -3457,8 +3463,8 @@ async function connectStore() {
     const saved = snap.docs.filter(d => d.exists).map(d => { const x = d.data(); return {id: d.id, n: x.n, reason: x.reason || '', basedOn: x.basedOn, savedAt: x.savedAt, days: Object.fromEntries(Object.entries(x.days || {}).map(([k, v]) => [k, {...v, type: normType(v.type)}])), label: `Version ${x.n} · ${x.savedAt ? nice(x.savedAt.slice(0, 10)) : ''}${x.reason ? ' · ' + x.reason.slice(0, 40) : ''}`}; }).sort((a, b) => a.n - b.n);
     versions = saved.some(v => v.n === 1) ? saved : [V1, ...saved]; /* the live site keeps an imported sheet plan as Version 1 */
     // Open on the most recent saved version, unless a version was picked by hand or there are unsaved edits
-    if (!B.versionPicked && !B.dirty && saved.length) B.versionId = saved[saved.length - 1].id;
-    if (!versions.find(v => v.id === B.versionId)) B.versionId = 'v1';
+    if (!B.versionPicked && !B.dirty) B.versionId = pickSeasonVersion();
+    if (B.versionId !== 'blank' && !versions.find(v => v.id === B.versionId)) B.versionId = pickSeasonVersion();
     renderVersionSelects();
     if (!B.dirty) { B.draft = clone(curVersion().days); if (S.view === 'builder') { renderWeek(); renderForecast(); } }
     if (B.dirty) document.getElementById('b-save').disabled = false;
@@ -3744,6 +3750,8 @@ function renderSeasonPick() {
 renderSeasonPick();
 document.getElementById('season-pick').addEventListener('change', e => {
   S.season = e.target.value;
+  if (!B.dirty) { B.versionPicked = false; B.compareId = ''; B.versionId = pickSeasonVersion(); B.draft = clone(curVersion().days); B.undo = []; updUndo(); B.flagsKnown = null; renderVersionSelects(); }
+  else setStatus('You have unsaved changes, so the Builder kept the open version. Save or discard them, then pick the season again to open its own plan.', 'err');
   const f = S.ex; [f.from, f.to] = seasonActuals(); const fa = document.getElementById('f-from'), fb = document.getElementById('f-to'); if (fa) fa.value = f.from; if (fb) fb.value = f.to;
   /* move the Builder and Player calendars into the season picked: today for the current season, else that season's first planned day */
   const cs = curSeason(); if (cs) { let d = TODAY0 >= cs.start && TODAY0 <= cs.end ? TODAY0 : null; if (!d) { for (const k of Object.keys(B.draft)) if (k >= cs.start && k <= cs.end && (!d || k < d)) d = k; } d = d || cs.start;
