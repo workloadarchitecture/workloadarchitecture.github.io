@@ -545,7 +545,7 @@ body.live .pv-preview { display: none; }
 .tlplyo{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:10px;font-size:13px}.tlplyo input[type=time]{width:110px}
 .mtrow td{background:color-mix(in srgb,#EF9F27 16%,transparent);color:var(--ink)}.tip-mt{margin-top:4px}.mt-ok{color:var(--good)}.mt-off{color:#b8860b}
 .pv-mt{background:color-mix(in srgb,#EF9F27 16%,transparent);border-radius:8px;padding:6px 9px;margin:4px 0 6px}.pv-mt small{display:block;color:var(--muted)}
-.cmtc{display:flex;flex-wrap:wrap;gap:2px 6px;align-items:center;font-size:10.5px;margin:2px 0;color:var(--muted)}.cmtc label{display:inline-flex;align-items:center;gap:2px;margin:0}.cmtc input{width:34px;padding:0 2px;font-size:10.5px;height:16px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--ink)}.cmtc input.one{font-weight:700;border-color:#EF9F27}
+.cmtc{display:flex;flex-wrap:wrap;gap:1px 5px;align-items:center;font-size:10.5px;line-height:1;margin:2px 0;color:var(--muted)}.cmtc label{display:inline-flex;align-items:center;gap:2px;margin:0;white-space:nowrap}.cell .cmtc input[type="number"]{width:28px;min-height:0;height:17px;padding:0 2px;font-size:10.5px;line-height:15px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--ink);-moz-appearance:textfield;appearance:textfield}.cmtc input::-webkit-outer-spin-button,.cmtc input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.cmtc input.one{font-weight:700;border-color:#EF9F27}
 .erange{font-size:11px;color:#1f62b0;margin-top:2px}
 .cmt{font-size:11.5px;color:var(--muted);margin:2px 0 4px}
 .bmt{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:12.5px;margin:6px 0}.bmt label{display:inline-flex !important;align-items:center;gap:5px;margin:0 !important;font-size:12.5px}.bmt input{width:64px !important;padding:3px 6px !important;height:auto !important}.bmt .muted{flex-basis:100%}.bmt .muted{font-size:12px}
@@ -1747,6 +1747,15 @@ function saveDayMT(t) { const d = t.dataset.d, k = t.dataset.k, id = `mt-${k}-${
       if (v !== null && !(v >= 50 && v <= 105)) { setStatus('Enter a mode target between 50 and 105 mph.', 'err'); return; }
       (v === null ? db.collection(col('modeTargets')).doc(id).delete() : db.collection(col('modeTargets')).doc(id).set({pitcher: PITCHER, cat: k, from: d, day: d, mph: v, dayType: '', note: 'This day only', savedAt: new Date().toISOString(), by: me || null}))
         .then(() => { t.classList.toggle('one', v !== null); setStatus(v === null ? `${MT_SHORT[k]} on ${nice(d)} uses the standing target again.` : `🎯 ${MT_SHORT[k]} mode target ${v} mph on ${nice(d)} (this day only).`, 'ok'); }).catch(() => setStatus('Could not save the mode target.', 'err'));
+}
+/* a saved version remembers whether ↔️ ranges and 🎯 mode targets were ticked */
+function tickDirty() { if (typeof markDirty === 'function' && S.view === 'builder') { markDirty(); setStatus('Save a new version to keep this setting with the plan.', ''); } }
+function applyVersionTicks(v) {
+  if (!v) return; let ch = false;
+  if (typeof v.showVT === 'boolean' && v.showVT !== SHOW_VT) { SHOW_VT = v.showVT; ch = true; }
+  if (typeof v.showMT === 'boolean' && v.showMT !== SHOW_MT) { SHOW_MT = v.showMT; ch = true; }
+  const a = document.getElementById('vt-on'), b = document.getElementById('mt-on'); if (a) a.checked = SHOW_VT; if (b) b.checked = SHOW_MT;
+  if (ch && S.view === 'player') renderPlayer();
 }
 const modeDiff = (v, t) => { const df = v - t; return df === 0 ? 'on target' : `${Math.abs(df)} mph ${df > 0 ? 'above' : 'below'}`; };
 /* planned day: one 🎯 line per group, after that group's last line */
@@ -2955,7 +2964,7 @@ function showBanner(html, actions) {
 function hideBanner() { document.getElementById('b-banner').hidden = true; }
 function switchVersion(id) {
   hideBanner(); B.versionId = id; if (B.compareId === id) B.compareId = '';
-  B.draft = clone(curVersion().days); B.dirty = false; B.undo = []; updUndo(); B.flagsKnown = null;
+  B.draft = clone(curVersion().days); applyVersionTicks(curVersion()); B.dirty = false; B.undo = []; updUndo(); B.flagsKnown = null;
   document.getElementById('b-save').disabled = true; document.getElementById('b-discard').disabled = true;
   renderVersionSelects(); renderWeek(); renderForecast();
   const v = curVersion(); setStatus(v.reason ? `${v.label}: ${v.reason}` : v.label);
@@ -3010,7 +3019,7 @@ async function saveVersion() {
   const btn = document.getElementById('b-save'); btn.disabled = true;
   const n = Math.max(...versions.map(v => v.n)) + 1;
   const reason = document.getElementById('b-reason').value.trim();
-  const body = {n, reason, basedOn: curVersion().n || null, savedAt: new Date().toISOString(), by: me || null, days: B.draft};
+  const body = {n, reason, basedOn: curVersion().n || null, savedAt: new Date().toISOString(), by: me || null, showVT: SHOW_VT, showMT: SHOW_MT, days: B.draft};
   try {
     await db.collection(col('planVersions')).doc('v' + n).set(body);
     B.versionId = 'v' + n; B.dirty = false; document.getElementById('b-discard').disabled = true; document.getElementById('b-reason').value = '';
@@ -3189,6 +3198,7 @@ class PdfPage {
     return wdt;
   }
   chip(x, y, s, bg, fg, size = 7, maxW) { const str = maxW ? fit(s, size, true, maxW - 6) : pdfClean(s); const w = tw(str, size, true) + 6; const pale = bg[0] + bg[1] + bg[2] > 740; this.rect(x, y, w, size + 4, bg, pale ? [190, 196, 192] : null, 0.6); this.text(x + 3, y + size + 0.6, str, {size, bold: true, color: fg}); return w; }
+  target(x, y, r = 2.6) { this.dot(x, y, r, [210, 40, 40]); this.dot(x, y, r * 0.66, [255, 255, 255]); this.dot(x, y, r * 0.33, [210, 40, 40]); return r * 2 + 1.5; }
   pin(x, y, s = 1) { this.line(x + 2.6 * s, y + 3.2 * s, x + 0.4 * s, y + 6.6 * s, [90, 90, 90], 0.7 * s); this.dot(x + 3.4 * s, y + 2.2 * s, 2.1 * s, [210, 40, 40]); this.dot(x + 2.8 * s, y + 1.6 * s, 0.6 * s, [255, 200, 200]); return 6.8 * s; }
   pad(x, y, s = 1) { this.rect(x + 0.4 * s, y + 0.6 * s, 4.8 * s, 6 * s, [255, 207, 51], [190, 140, 0], 0.4 * s); this.rect(x + 0.4 * s, y + 0.6 * s, 4.8 * s, 1.2 * s, [230, 160, 0]); for (let k = 0; k < 3; k++) this.line(x + 1.2 * s, y + (3 + k * 1.2) * s, x + 4.4 * s, y + (3 + k * 1.2) * s, [150, 110, 0], 0.3 * s); return 6.8 * s; }
   noteBub(x, y, s, size, maxW, h) { h = h || size + 4.2; const iw = 6.2 * size / 6; const str = fit(s, size, true, maxW - iw - 5); const w = Math.min(maxW, tw(str, size, true) + iw + 5); this.rect(x, y - 0.6, w, h, [255, 192, 0], [217, 164, 0], 0.5); this.pad(x + 1.2, y - 0.2 + (h - 7.4) / 2, size / 6.6); this.text(x + 2 + iw, y + size + 0.5, str, {size, bold: true, color: [58, 42, 0]}); return w; }
@@ -3374,7 +3384,7 @@ function pdfWeekPages(from, to, opt) {
     const rows = days.map(d => d < from || d > to || !B.draft[d] ? [] : B.draft[d].items);
     const notesH = opt.notes ? Math.max(...days.map(d => (teamNote(d) ? 8.5 : 0) + (B.draft[d] && B.draft[d].note ? 8.5 : 0))) : 0;
     const bodyRows = Math.max(1, ...rows.map(r => r.length));
-    const mtTxt = d => { if (!SHOW_MT || d < from || d > to || !B.draft[d]) return ''; const day = B.draft[d]; return dayModeKeys(d, day).map(k => { const t = targetFor(k, d, day.type); return t ? `${MT_CAL[k]} ${t.mph}` : ''; }).filter(Boolean).join(' · '); };
+    const mtTxt = d => { if (!SHOW_MT || d < from || d > to || !B.draft[d]) return ''; const day = B.draft[d]; return dayModeKeys(d, day).map(k => { const t = targetFor(k, d, day.type); return t ? `${MT_CAL[k]} ${t.mph} mph` : ''; }).filter(Boolean).join(' · '); };
     const mtH = days.some(d => mtTxt(d)) ? 8 : 0;
     const h = 15 + 19 + 11 + notesH + mtH + 10 + bodyRows * RH + 18;
     if (y + h > bottom && y > top) newPage();
@@ -3394,7 +3404,7 @@ function pdfWeekPages(from, to, opt) {
       const p = outside ? 0 : dayPlanWL(day); const rr = RM.get(d);
       if (p || (day && day.items.length && !outside)) pg.text(x + 4, yy, `WL units ${fmt(p)}`, {size: 6.6, bold: true}); if (p && rr && rr.ac !== null && rr.ac !== undefined) { const bad = rr.ready && (rr.ac > rhi || rr.ac < rlo); pg.text(x + cw - 4, yy, `ACWR ${fmt(rr.ac, 2)}`, {size: 6.6, bold: true, color: bad ? (rr.ac > rhi ? [163, 50, 42] : [154, 91, 6]) : INK, align: 'right'}); }
       yy += 4;
-      if (mtH) { const mt = outside ? '' : mtTxt(d); if (mt) pg.text(x + 4, yy + 5.5, `Mode target ${mt}`, {size: 6.2, bold: true, color: [176, 112, 16], w: cw - 8}); yy += mtH; }
+      if (mtH) { const mt = outside ? '' : mtTxt(d); if (mt) { const iw = pg.target(x + 6.6, yy + 3.6, 2.6); pg.text(x + 4 + iw, yy + 5.5, mt, {size: 6.2, bold: true, color: [176, 112, 16], w: cw - 8 - iw}); } yy += mtH; }
       if (opt.notes && !outside) { const tn = teamNote(d); if (tn) { const iw = pg.pin(x + 3, yy, 0.95); pg.text(x + 4 + iw, yy + 5.7, tn, {size: 6, bold: true, color: NAVY, w: cw - 8 - iw}); yy += 8.5; }
         if (day && day.note) { pg.noteBub(x + 3, yy - 0.4, day.note, 6, cw - 6); yy += 9; } }
       yy = y0 + 33 + 4 + notesH + mtH;
@@ -3483,13 +3493,13 @@ async function connectStore() {
     if (S.view === 'explore') { const lo = S.ex.from <= S.ex.to ? S.ex.from : S.ex.to, hi = S.ex.from <= S.ex.to ? S.ex.to : S.ex.from; drawMode(dateRange(lo, hi)); } else renderTargets();
   }, () => {});
   db.collection(col('planVersions')).onSnapshot(snap => {
-    const saved = snap.docs.filter(d => d.exists).map(d => { const x = d.data(); return {id: d.id, n: x.n, reason: x.reason || '', basedOn: x.basedOn, savedAt: x.savedAt, days: Object.fromEntries(Object.entries(x.days || {}).map(([k, v]) => [k, {...v, type: normType(v.type)}])), label: `Version ${x.n} · ${x.savedAt ? nice(x.savedAt.slice(0, 10)) : ''}${x.reason ? ' · ' + x.reason.slice(0, 40) : ''}`}; }).sort((a, b) => a.n - b.n);
+    const saved = snap.docs.filter(d => d.exists).map(d => { const x = d.data(); return {id: d.id, n: x.n, reason: x.reason || '', basedOn: x.basedOn, savedAt: x.savedAt, showVT: typeof x.showVT === 'boolean' ? x.showVT : null, showMT: typeof x.showMT === 'boolean' ? x.showMT : null, days: Object.fromEntries(Object.entries(x.days || {}).map(([k, v]) => [k, {...v, type: normType(v.type)}])), label: `Version ${x.n} · ${x.savedAt ? nice(x.savedAt.slice(0, 10)) : ''}${x.reason ? ' · ' + x.reason.slice(0, 40) : ''}`}; }).sort((a, b) => a.n - b.n);
     versions = saved.some(v => v.n === 1) ? saved : [V1, ...saved]; /* the live site keeps an imported sheet plan as Version 1 */
     // Open on the most recent saved version, unless a version was picked by hand or there are unsaved edits
     if (!B.versionPicked && !B.dirty) B.versionId = pickSeasonVersion();
     if (B.versionId !== 'blank' && !versions.find(v => v.id === B.versionId)) B.versionId = pickSeasonVersion();
     renderVersionSelects();
-    if (!B.dirty) { B.draft = clone(curVersion().days); if (S.view === 'builder') { renderWeek(); renderForecast(); } }
+    if (!B.dirty) { B.draft = clone(curVersion().days); applyVersionTicks(curVersion()); if (S.view === 'builder') { renderWeek(); renderForecast(); } }
     if (B.dirty) document.getElementById('b-save').disabled = false;
   }, () => { setStatus('Lost the connection to saved versions. Reload the page to reconnect.', 'err'); });
 }
@@ -3723,8 +3733,8 @@ maxInput.addEventListener('change', () => { maxTouched = true; applyMax(parseFlo
 /* average fastball: drives the velocity targets */
 function syncFb() { const i = document.getElementById('fbv'), r = document.getElementById('fbreset'); if (!i) return; i.value = AVG_FB === null ? '' : AVG_FB.toFixed(1); r.hidden = !fbTouched || MASTER_FB === null; r.textContent = `Reset to ${MASTER_FB === null ? '' : MASTER_FB.toFixed(1)}`; }
 document.getElementById('fbv').addEventListener('change', e => { const v = parseFloat(e.target.value); if (e.target.value === '') { fbTouched = true; AVG_FB = null; } else if (v >= 60 && v <= 110) { fbTouched = true; AVG_FB = v; } syncFb(); if (S.view === 'player') renderPlayer(); if (S.view === 'builder') { renderWeek(); renderForecast(); } if (S.view === 'explore') renderExplore(); });
-{ const cm = document.getElementById('mt-on'); cm.checked = SHOW_MT; cm.addEventListener('change', () => { SHOW_MT = cm.checked; try { localStorage.setItem('wl-mt', SHOW_MT ? 'on' : 'off'); } catch (e) {} if (S.view === 'player') renderPlayer(); if (S.view === 'builder') { renderWeek(); renderForecast(); } if (S.view === 'explore') renderExplore(); }); }
-{ const cb = document.getElementById('vt-on'); cb.checked = SHOW_VT; cb.addEventListener('change', () => { SHOW_VT = cb.checked; try { localStorage.setItem('wl-vt', SHOW_VT ? 'on' : 'off'); } catch (e) {} if (S.view === 'player') renderPlayer(); if (S.view === 'builder') { renderWeek(); renderForecast(); } if (S.view === 'explore') renderExplore(); }); }
+{ const cm = document.getElementById('mt-on'); cm.checked = SHOW_MT; cm.addEventListener('change', () => { SHOW_MT = cm.checked; try { localStorage.setItem('wl-mt', SHOW_MT ? 'on' : 'off'); } catch (e) {} if (curVersion().showMT !== SHOW_MT) tickDirty(); if (S.view === 'player') renderPlayer(); if (S.view === 'builder') { renderWeek(); renderForecast(); } if (S.view === 'explore') renderExplore(); }); }
+{ const cb = document.getElementById('vt-on'); cb.checked = SHOW_VT; cb.addEventListener('change', () => { SHOW_VT = cb.checked; try { localStorage.setItem('wl-vt', SHOW_VT ? 'on' : 'off'); } catch (e) {} if (curVersion().showVT !== SHOW_VT) tickDirty(); if (S.view === 'player') renderPlayer(); if (S.view === 'builder') { renderWeek(); renderForecast(); } if (S.view === 'explore') renderExplore(); }); }
 document.getElementById('fbreset').addEventListener('click', () => { fbTouched = false; AVG_FB = MASTER_FB; syncFb(); if (S.view === 'player') renderPlayer(); if (S.view === 'builder') { renderWeek(); renderForecast(); } if (S.view === 'explore') renderExplore(); });
 syncFb();
 const roleSel = document.getElementById('role');
@@ -3773,7 +3783,7 @@ function renderSeasonPick() {
 renderSeasonPick();
 document.getElementById('season-pick').addEventListener('change', e => {
   S.season = e.target.value;
-  if (!B.dirty) { B.versionPicked = false; B.compareId = ''; B.versionId = pickSeasonVersion(); B.draft = clone(curVersion().days); B.undo = []; updUndo(); B.flagsKnown = null; renderVersionSelects(); }
+  if (!B.dirty) { B.versionPicked = false; B.compareId = ''; B.versionId = pickSeasonVersion(); B.draft = clone(curVersion().days); applyVersionTicks(curVersion()); B.undo = []; updUndo(); B.flagsKnown = null; renderVersionSelects(); }
   else setStatus('You have unsaved changes, so the Builder kept the open version. Save or discard them, then pick the season again to open its own plan.', 'err');
   const f = S.ex; [f.from, f.to] = seasonActuals(); const fa = document.getElementById('f-from'), fb = document.getElementById('f-to'); if (fa) fa.value = f.from; if (fb) fb.value = f.to;
   /* move the Builder and Player calendars into the season picked: today for the current season, else that season's first planned day */
