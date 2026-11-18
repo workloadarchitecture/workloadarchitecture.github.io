@@ -545,6 +545,8 @@ body.live .pv-preview { display: none; }
 .tlplyo{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:10px;font-size:13px}.tlplyo input[type=time]{width:110px}
 .mtrow td{background:color-mix(in srgb,#EF9F27 16%,transparent);color:var(--ink)}.tip-mt{margin-top:4px}.mt-ok{color:var(--good)}.mt-off{color:#b8860b}
 .pv-mt{background:color-mix(in srgb,#EF9F27 16%,transparent);border-radius:8px;padding:6px 9px;margin:4px 0 6px}.pv-mt small{display:block;color:var(--muted)}
+.cmtc{display:flex;flex-wrap:wrap;gap:2px 6px;align-items:center;font-size:10.5px;margin:2px 0;color:var(--muted)}.cmtc label{display:inline-flex;align-items:center;gap:2px;margin:0}.cmtc input{width:34px;padding:0 2px;font-size:10.5px;height:16px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--ink)}.cmtc input.one{font-weight:700;border-color:#EF9F27}
+.erange{font-size:11px;color:#1f62b0;margin-top:2px}
 .cmt{font-size:11.5px;color:var(--muted);margin:2px 0 4px}
 .bmt{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:12.5px;margin:6px 0}.bmt label{display:inline-flex !important;align-items:center;gap:5px;margin:0 !important;font-size:12.5px}.bmt input{width:64px !important;padding:3px 6px !important;height:auto !important}.bmt .muted{flex-basis:100%}.bmt .muted{font-size:12px}
 .pwin{flex-wrap:wrap;gap:6px 16px;align-items:center}.pwin .pw{display:inline-flex;gap:5px;align-items:center;font-size:13px}.pwin input[type=date]{width:140px}.pwin small{flex-basis:100%}
@@ -1131,6 +1133,7 @@ function upsFor(day, c) {
 }
 function effN(it, day) { const n = +it.n || 0; return it.perUp ? n * upsFor(day, it.cat) : n; }
 function itemWL(it, day) {
+  if (it.kind === 'plyo' && /reverse/i.test(it.name || '')) return 0; /* reverse throws carry no workload */
   if (it.kind === 'plyo') { const pc = normPlyo(it.cat, it.i); if (pc === 'plyo_wu' && !(+it.i >= 1)) return 0; const b = PLYO_BASE[it.ball]; return b ? it.n * b * mult(it.i) : 0; }
   // Game: 87.5 per pitch. The sheet's old innings term (6 warmups per inning at 79 x 0.8) now lives in the Game warmup item, per up.
   if (it.kind === 'game') return GAME_BASE * (+it.pitches || 0) + (it.ups === undefined ? (+it.innings || 0) * 6 * 79 * 0.8 : 0);
@@ -1732,6 +1735,19 @@ const pvShowVT = d => SHOW_VT && inWin(d, PSET.vtFrom, PSET.vtTo);
 const pvShowMT = d => SHOW_MT && inWin(d, PSET.mtFrom, PSET.mtTo);
 const PW_IDS = [['pw-vt-from', 'vtFrom'], ['pw-vt-to', 'vtTo'], ['pw-mt-from', 'mtFrom'], ['pw-mt-to', 'mtTo']];
 function pwinSync() { for (const [id, k] of PW_IDS) { const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = PSET[k] || ''; } }
+const MT_CAL = {cp: 'CP', mp: 'Mnd', gbp: 'GB', lb: 'LBP', gp: 'G'};
+/* Builder calendar: the day's mode targets, editable in the cell (a number typed here holds for that day only) */
+function calMT(d, day) {
+  if (!SHOW_MT || !day) return ''; const ks = dayModeKeys(d, day); if (!ks.length) return '';
+  return `<div class="cmtc" title="🎯 Mode targets: the speed most throws should sit at. Type to set this day only; clear to use the standing target.">🎯 ${ks.map(k => { const one = modeTargets.find(x => x.day === d && x.cat === k), st = standingTarget(k, d, day.type);
+    return `<label>${MT_CAL[k]}<input type="number" class="f-mt f-mtc${one ? ' one' : ''}" data-d="${d}" data-k="${k}" min="50" max="105" step="1" value="${one ? one.mph : ''}" placeholder="${st ? st.mph : '–'}" aria-label="${MT_SHORT[k]} mode target for ${nice(d)}"></label>`; }).join('')}</div>`;
+}
+function saveDayMT(t) { const d = t.dataset.d, k = t.dataset.k, id = `mt-${k}-${d}`, v = t.value === '' ? null : Math.round(+t.value);
+      if (!db) { setStatus('Saving a mode target needs to be signed in.', 'err'); return; }
+      if (v !== null && !(v >= 50 && v <= 105)) { setStatus('Enter a mode target between 50 and 105 mph.', 'err'); return; }
+      (v === null ? db.collection(col('modeTargets')).doc(id).delete() : db.collection(col('modeTargets')).doc(id).set({pitcher: PITCHER, cat: k, from: d, day: d, mph: v, dayType: '', note: 'This day only', savedAt: new Date().toISOString(), by: me || null}))
+        .then(() => { t.classList.toggle('one', v !== null); setStatus(v === null ? `${MT_SHORT[k]} on ${nice(d)} uses the standing target again.` : `🎯 ${MT_SHORT[k]} mode target ${v} mph on ${nice(d)} (this day only).`, 'ok'); }).catch(() => setStatus('Could not save the mode target.', 'err'));
+}
 const modeDiff = (v, t) => { const df = v - t; return df === 0 ? 'on target' : `${Math.abs(df)} mph ${df > 0 ? 'above' : 'below'}`; };
 /* planned day: one 🎯 line per group, after that group's last line */
 function mtRowHTML(k, t, cols) { return `<tr class="mtrow"><td></td><td colspan="${cols}">🎯 Mode target <b>${t.mph} mph</b> · the speed most ${modeWho(k)} should sit at${t.day ? ' <span style="opacity:.75">(this day only)</span>' : t.dayType ? ` <span style="opacity:.75">(${esc(t.dayType)} days)</span>` : ''}</td></tr>`; }
@@ -1900,7 +1916,8 @@ function itemRow(date, idx, it) {
   else { ball = sel(OZ.map(o => [o, o + ' oz']), it.oz, 'f-oz'); count = num(it.n, 'f-n', 'Throws') + upsBits(it, dayObj, c, date, idx); }
   inten = it.kind === 'game' ? '<span class="muted">—</span>' : sel(intOptions(it, c), it.i ?? '', 'f-i', ` data-tip="${esc(intTip(c, sv))}"`);
   const fill = needsFill(it) ? `<tr class="fillrow"><td colspan="7">⚠ Fill in the ${esc(CTX_BY[c].label.toLowerCase())} throws for this day.</td></tr>` : '';
-  return `<tr class="${needsFill(it) ? 'needfill' : ''}"><td><i class="sw" style="background:${CTX_BY[c].color}"></i>${cat}</td><td>${detail}</td><td>${ball}</td><td>${count}</td><td>${inten}</td><td class="n" data-wl="${date}|${idx}">${fmt(itemWL(it, dayObj))}</td><td style="white-space:nowrap">${mvBtns(dayObj, date, idx)}<button type="button" class="ghost f-del" data-d="${date}" data-i="${idx}" aria-label="Remove">✕</button></td></tr>${fill}`;
+  const rg0 = bandText(bandFor(it, dayObj));
+  return `<tr class="${needsFill(it) ? 'needfill' : ''}"><td><i class="sw" style="background:${CTX_BY[c].color}"></i>${cat}</td><td>${detail}${rg0 ? `<div class="erange">↔️ ${rg0}</div>` : ''}</td><td>${ball}</td><td>${count}</td><td>${inten}</td><td class="n" data-wl="${date}|${idx}">${fmt(itemWL(it, dayObj))}</td><td style="white-space:nowrap">${mvBtns(dayObj, date, idx)}<button type="button" class="ghost f-del" data-d="${date}" data-i="${idx}" aria-label="Remove">✕</button></td></tr>${fill}`;
 }
 function dayNums(date) {
   const day = B.draft[date]; const p = dayPlanWL(day);
@@ -2021,6 +2038,7 @@ function renderDayCompact(date) {
     }
     if (it.kind === 'ball' && ['mp', 'mw', 'gw', 'gbp', 'gbw'].includes(c)) rows += `<div class="r3">${upsBits(it, day, c, date, i)}</div>`;
     if (!big && mvBtns(day, date, i)) { if (rows.endsWith('</div></div>') && rows.includes('<div class="r3">')) rows = rows.slice(0, -6) + `<span style="margin-left:auto">${mvBtns(day, date, i)}</span></div>`; else rows += `<div class="r3"><span class="muted">Move</span><span style="margin-left:auto">${mvBtns(day, date, i)}</span></div>`; }
+    { const rg = bandText(bandFor(it, day)); if (rg) rows += `<div class="erange" title="Velocity range for this line, from the average fastball">↔️ ${rg}</div>`; }
     if (needsFill(it)) rows += `<div class="fillnote">⚠ Fill in warmup throws</div>`;
     return `<div class="citem ${needsFill(it) ? 'needfill' : ''}" style="border-left-color:${CTX_BY[c].color}">${rows}</div>`;
   };
@@ -2065,11 +2083,13 @@ function editTotals(date, compact) {
   const row = (k, n, w) => `<div class="etrow"><span>${k}</span><span><b>${n}</b> throws</span><span><b>${fmt(w)}</b> WL units</span></div>`;
   return (s.wuN ? row('Plyo warmup total', s.wuN, s.wuW) : '') + row('All other throws', s.oN, s.oW) + `<div class="etrow tot"><span>Total</span><span></span><span><b>${fmt(s.wuW + s.oW)}</b> WL units</span></div>`;
 }
+/* Reverse throws are part of the plyo warmup but are not counted in its throw total */
+const isReverse = it => it && it.kind === 'plyo' && /reverse/i.test(it.name || '');
 // Throw totals: plyo warmup separately, then every other throw (plyo high included)
 function splitPlanned(day) {
   const r = {wuN: 0, wuW: 0, oN: 0, oW: 0}; if (!day) return r;
   for (const it of day.items) { const n = it.kind === 'game' ? (+it.pitches || 0) : it.kind === 'ball' ? effN(it, day) : (+it.n || 0); const w = itemWL(it, day);
-    if (itemCat(it, day) === 'plyo_wu') { r.wuN += n; r.wuW += w; } else { r.oN += n; r.oW += w; } }
+    if (itemCat(it, day) === 'plyo_wu') { if (!isReverse(it)) r.wuN += n; r.wuW += w; } else { r.oN += n; r.oW += w; } }
   return r;
 }
 const splitRows = (wuN, wuW, oN, oW, cols) => { const R = s => `<td style="text-align:right">${s}</td>`; const row = (lab, n, w) => cols === 'units-first' ? `<tr><td><b>${lab}</b></td>${R(`<b>${fmt(w)}</b>`)}${R(`<b>${n}</b>`)}</tr>` : `<tr><td><b>${lab}</b></td><td></td><td></td>${R(`<b>${n}</b>`)}<td></td>${R(`<b>${fmt(w)}</b>`)}</tr>`;
@@ -2079,7 +2099,7 @@ function itemsSummary(day) {
   let wu = 0, pl = 0, cp = 0, md = 0, bp = 0, ups = 0, gp = 0, inn = 0;
   for (const it of day.items) {
     const c = itemCat(it, day), n = +it.n || 0;
-    if (c === 'plyo_wu') wu += n; else if (c === 'plyo_lm' || c === 'plyo_hi') pl += n;
+    if (c === 'plyo_wu') { if (!isReverse(it)) wu += n; } else if (c === 'plyo_lm' || c === 'plyo_hi') pl += n;
     else if (c === 'gp') { gp += +it.pitches || 0; inn += +it.innings || 0; }
     else if (c === 'cp') cp += n; else if (c === 'gw') ups += n; else if (c === 'gbw' || c === 'gbp') bp += n; else md += n;
   }
@@ -2250,6 +2270,7 @@ function renderCalendar() {
           ${p || act !== null ? `<div class="pa">${p ? (() => { const sp = splitPlanned(day); return `<span title="${sp.oN} throws${sp.wuN ? ` plus ${sp.wuN} plyo warmup` : ''} · ${fmt(p)} workload units"><em class="plab">Plan </em><b class="pthr">${sp.oN}</b><i class="psl">/</i><b>${fmt(p)}</b></span>`; })() : '<span></span>'}${act !== null ? `<span>Act <b class="${diff > 0 ? 'diffpos' : 'diffneg'}">${fmt(act)}</b></span>` : ''}</div>` : ''}
           ${(() => { const pr = (B.rbasis === 'actual' && hasActual(d)) ? PM.get(d) : RM.get(d); const ae = hasActual(d) ? AM.get(d) : null; const pv = pr && p ? pr.ac : null; const av = ae && d >= acFrom() ? ae.ac9 : null; if (pv === null && av === null) return ''; return `<div class="acr">${pv !== null ? `<span>ACWR <b class="${acCls(pv, pr.ready)}">${fmt(pv, 2)}</b></span>` : '<span></span>'}${av !== null ? `<span>Act <b class="${acCls(av, acReady(d))}">${fmt(av, 2)}</b></span>` : ''}</div>`; })()}
         </div>
+        ${calMT(d, day)}
         ${(() => { const r = RM.get(d); if (!r || !r.ready || (B.rbasis === 'actual' && hasActual(d))) return ''; const st = p > r.hi ? 'over' : (!r.loFree && p < r.lo) ? 'under' : 'ok'; return `<div class="rng ${d > pEnd ? 'next' : st}"${ctip(targetsTip(d, r))}>${d > pEnd ? 'Next day · ' : ''}Available WL <b>${r.loFree || r.hi < 0 ? '≤ ' : ''}${rangeText2(r, true).replace(/^≤ /, '')}</b>${st === 'over' && d <= pEnd ? ' ▲' : st === 'under' && d <= pEnd ? ' ▼' : ''}</div>`; })()}
       </div>`;
     }
@@ -2666,7 +2687,9 @@ function setupBuilder() {
   document.getElementById('b-mode-day').addEventListener('click', () => setMode('day'));
   const cal = document.getElementById('b-cal');
   const pick = d => { B.sel = d; B.selEnd = null; B.week = weekStart(d); renderMonth(); document.getElementById('b-days').scrollIntoView({block: 'nearest'}); };
-  cal.addEventListener('click', e => { if (e.target.closest('select')) return; const c = e.target.closest('[data-cal]'); if (!c) return; if (e.shiftKey && B.sel) { B.selEnd = c.dataset.cal; renderMonth(); } else pick(c.dataset.cal); });
+  cal.addEventListener('change', e => { if (e.target.classList.contains('f-mt')) saveDayMT(e.target); });
+  cal.addEventListener('pointerdown', e => { const t = e.target.closest('.cmtc'); if (!t) return; const cell = t.closest('[data-cal]'); if (cell) { cell.draggable = false; const back = () => { cell.draggable = true; }; e.target.addEventListener('blur', back, {once: true}); setTimeout(() => { if (document.activeElement !== e.target) back(); }, 400); } });
+  cal.addEventListener('click', e => { if (e.target.closest('select') || e.target.closest('.cmtc')) return; const c = e.target.closest('[data-cal]'); if (!c) return; if (e.shiftKey && B.sel) { B.selEnd = c.dataset.cal; renderMonth(); } else pick(c.dataset.cal); });
   const setTypes = (ds, ty) => { snapshot(); ds.forEach(d => setDayType(d, ty)); markDirty(); renderMonth(); renderForecast(); updUndo(); };
   // In-cell day-type menu: the bubble opens a list right there; the rest of the cell opens the day editor
   let ctMenu = null;
@@ -2784,7 +2807,7 @@ function setupBuilder() {
     const k = e.key.toLowerCase();
     if (k === 'c') { e.preventDefault(); copySel(); } else if (k === 'v') { e.preventDefault(); pasteSel(); } else if (k === 'z') { e.preventDefault(); undoPlan(); }
   });
-  cal.addEventListener('keydown', e => { const c = e.target.closest('[data-cal]'); if (c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(c.dataset.cal); } });
+  cal.addEventListener('keydown', e => { if (e.target.closest('.cmtc')) return; const c = e.target.closest('[data-cal]'); if (c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(c.dataset.cal); } });
   document.getElementById('b-compare').addEventListener('change', e => { B.compareId = e.target.value; renderWeek(); renderForecast(); });
   document.getElementById('b-version').addEventListener('change', e => {
     const id = e.target.value; B.versionPicked = true;
@@ -2834,12 +2857,7 @@ function setupBuilder() {
     setTimeout(() => { redrawDay(g.d); if (sig && sig.cls) { const q = `.day[data-date="${g.d}"] .${sig.cls}` + (sig.i !== undefined ? `[data-i="${sig.i}"]` : sig.g ? `[data-g="${sig.g}"]` : ''); const el = days.querySelector(q); if (el) el.focus(); } }, 0);
   });
   days.addEventListener('change', e => {
-    if (e.target.classList.contains('f-mt')) { const t = e.target, d = t.dataset.d, k = t.dataset.k, id = `mt-${k}-${d}`, v = t.value === '' ? null : Math.round(+t.value);
-      if (!db) { setStatus('Saving a mode target needs to be signed in.', 'err'); return; }
-      if (v !== null && !(v >= 50 && v <= 105)) { setStatus('Enter a mode target between 50 and 105 mph.', 'err'); return; }
-      (v === null ? db.collection(col('modeTargets')).doc(id).delete() : db.collection(col('modeTargets')).doc(id).set({pitcher: PITCHER, cat: k, from: d, day: d, mph: v, dayType: '', note: 'This day only', savedAt: new Date().toISOString(), by: me || null}))
-        .then(() => setStatus(v === null ? `${MT_SHORT[k]} on ${nice(d)} uses the standing target again.` : `🎯 ${MT_SHORT[k]} mode target ${v} mph on ${nice(d)} (this day only).`, 'ok')).catch(() => setStatus('Could not save the mode target.', 'err'));
-      return; }
+    if (e.target.classList.contains('f-mt')) { saveDayMT(e.target); return; }
     if (redrawing) return;
     const t = e.target; const d = t.dataset.d; if (!d) return;
     if (t.dataset.g) { const k = t.dataset.g;
@@ -3303,6 +3321,8 @@ function pdfCalendarPages(from, to, opt) {
         if (day && day.type && !outside) { const [bg, fg] = TYPE_COLORS[day.type] || ['#eaeeea', '#17201d']; chipW = pg.chip(x + 3, yy, day.type, hexRgb(bg), hexRgb(fg), 6.3, cw - 6); }
         if (ml && chipW && tw(ml, 5.9, true) <= cw - chipW - 10) { pg.text(x + chipW + 6, yy + 7.2, ml, {size: 5.9, bold: true, color: GREY}); yy += 11.5; }
         else { if (chipW) yy += 11.5; if (ml && yy + 7 <= y + rh) { pg.text(x + 3.5, yy + 6, ml, {size: 5.9, bold: true, color: GREY, w: cw - 7}); yy += 8; } }
+        { const mt = !SHOW_MT || outside || !day ? '' : dayModeKeys(d, day).map(k => { const t = targetFor(k, d, day.type); return t ? `${MT_CAL[k]} ${t.mph}` : ''; }).filter(Boolean).join(' · ');
+          if (mt && yy + 7 <= y + rh) { pg.text(x + 3.5, yy + 6, `Mode ${mt}`, {size: 5.9, bold: true, color: [176, 112, 16], w: cw - 7}); yy += 8; } }
         const tn = opt.notes ? teamNote(d) : '', pn = opt.notes && day && !outside ? (day.note || '') : '';
         if ((tn || pn) && yy + 7 <= y + rh) { let nx = x + 3; const room = () => x + cw - 3 - nx;
           if (tn) { nx += pg.pin(nx, yy, 0.95) + 1; const s = fit(tn, 5.9, true, pn ? Math.min(room(), (cw - 10) * 0.55) : room()); nx += pg.text(nx, yy + 5.8, s, {size: 5.9, bold: true, color: NAVY}) + 4; }
@@ -3354,7 +3374,9 @@ function pdfWeekPages(from, to, opt) {
     const rows = days.map(d => d < from || d > to || !B.draft[d] ? [] : B.draft[d].items);
     const notesH = opt.notes ? Math.max(...days.map(d => (teamNote(d) ? 8.5 : 0) + (B.draft[d] && B.draft[d].note ? 8.5 : 0))) : 0;
     const bodyRows = Math.max(1, ...rows.map(r => r.length));
-    const h = 15 + 19 + 11 + notesH + 10 + bodyRows * RH + 18;
+    const mtTxt = d => { if (!SHOW_MT || d < from || d > to || !B.draft[d]) return ''; const day = B.draft[d]; return dayModeKeys(d, day).map(k => { const t = targetFor(k, d, day.type); return t ? `${MT_CAL[k]} ${t.mph}` : ''; }).filter(Boolean).join(' · '); };
+    const mtH = days.some(d => mtTxt(d)) ? 8 : 0;
+    const h = 15 + 19 + 11 + notesH + mtH + 10 + bodyRows * RH + 18;
     if (y + h > bottom && y > top) newPage();
     const L = weekLabel(w); const wl = L.reset ? `${L.reset.label} wk ${L.reset.n}${L.base ? ` (Week ${L.base})` : ''}` : L.base ? `Week ${L.base}` : '';
     const wp = days.reduce((s, d) => s + (d < from || d > to ? 0 : dayPlanWL(B.draft[d])), 0);
@@ -3372,9 +3394,10 @@ function pdfWeekPages(from, to, opt) {
       const p = outside ? 0 : dayPlanWL(day); const rr = RM.get(d);
       if (p || (day && day.items.length && !outside)) pg.text(x + 4, yy, `WL units ${fmt(p)}`, {size: 6.6, bold: true}); if (p && rr && rr.ac !== null && rr.ac !== undefined) { const bad = rr.ready && (rr.ac > rhi || rr.ac < rlo); pg.text(x + cw - 4, yy, `ACWR ${fmt(rr.ac, 2)}`, {size: 6.6, bold: true, color: bad ? (rr.ac > rhi ? [163, 50, 42] : [154, 91, 6]) : INK, align: 'right'}); }
       yy += 4;
+      if (mtH) { const mt = outside ? '' : mtTxt(d); if (mt) pg.text(x + 4, yy + 5.5, `Mode target ${mt}`, {size: 6.2, bold: true, color: [176, 112, 16], w: cw - 8}); yy += mtH; }
       if (opt.notes && !outside) { const tn = teamNote(d); if (tn) { const iw = pg.pin(x + 3, yy, 0.95); pg.text(x + 4 + iw, yy + 5.7, tn, {size: 6, bold: true, color: NAVY, w: cw - 8 - iw}); yy += 8.5; }
         if (day && day.note) { pg.noteBub(x + 3, yy - 0.4, day.note, 6, cw - 6); yy += 9; } }
-      yy = y0 + 33 + 4 + notesH;
+      yy = y0 + 33 + 4 + notesH + mtH;
       pg.line(x + 3, yy + 2, x + cw - 3, yy + 2, LINE, 0.4);
       const cU = x + cw - 3, cI = cU - 19, cR = cI - 11, cA = x + 6;
       pg.text(cA, yy + 8, opt.velo && AVG_FB !== null ? 'ACTIVITY · MPH' : 'ACTIVITY', {size: 5.2, bold: true, color: GREY, cs: 0.3}); pg.text(cR, yy + 8, 'REPS', {size: 5.2, bold: true, color: GREY, align: 'right'}); pg.text(cI, yy + 8, 'INT', {size: 5.2, bold: true, color: GREY, align: 'right'}); pg.text(cU, yy + 2.4, 'WL', {size: 5.2, bold: true, color: GREY, align: 'right'}); pg.text(cU, yy + 8, 'UNITS', {size: 5.2, bold: true, color: GREY, align: 'right'});
@@ -3388,7 +3411,7 @@ function pdfWeekPages(from, to, opt) {
         pg.text(cI, yy, it.kind === 'game' ? '' : String(it.i ?? '-'), {size: 6, align: 'right'});
         pg.text(cU, yy, fmt(itemWL(it, day)), {size: 6, color: GREY, align: 'right'});
       }
-      if (!outside && day && day.items.length) { const sp = splitPlanned(day); const fy = y0 + 33 + 4 + notesH + 10 + bodyRows * RH + 9;
+      if (!outside && day && day.items.length) { const sp = splitPlanned(day); const fy = y0 + 33 + 4 + notesH + mtH + 10 + bodyRows * RH + 9;
         pg.line(x + 3, fy - 6.5, x + cw - 3, fy - 6.5, LINE, 0.4);
         pg.text(cA, fy, sp.wuN ? `Plyo WU ${sp.wuN} · Other ${sp.oN}` : `Throws ${sp.oN}`, {size: 5.9, bold: true, color: GREY, w: cw - 34}); pg.text(cU, fy, fmt(sp.wuW + sp.oW), {size: 6, bold: true, align: 'right'}); }
     });
