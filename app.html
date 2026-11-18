@@ -2088,21 +2088,33 @@ function editTotals(date, compact) {
   const day = B.draft[date]; if (!day || !day.items.length) return '';
   const s = splitPlanned(day);
   if (compact) { const row = (k, n, w) => `<div class="etrow"><span>${k}</span><span><b>${n}</b> · ${fmt(w)}</span></div>`;
-    return `<div class="etrow hd"><span></span><span>throws · WL units</span></div>` + (s.wuN ? row('Plyo WU', s.wuN, s.wuW) : '') + row('All other', s.oN, s.oW) + `<div class="etrow tot"><span>Total</span><span>${fmt(s.wuW + s.oW)} u</span></div>`; }
+    return `<div class="etrow hd"><span></span><span>throws · WL units</span></div>` + (s.wuN ? row('≤60 mph', s.wuN, s.wuW) : '') + row('>60 mph', s.oN, s.oW) + `<div class="etrow tot"><span>Total</span><span>${fmt(s.wuW + s.oW)} u</span></div>`; }
   const row = (k, n, w) => `<div class="etrow"><span>${k}</span><span><b>${n}</b> throws</span><span><b>${fmt(w)}</b> WL units</span></div>`;
-  return (s.wuN ? row('Plyo warmup total', s.wuN, s.wuW) : '') + row('All other throws', s.oN, s.oW) + `<div class="etrow tot"><span>Total</span><span></span><span><b>${fmt(s.wuW + s.oW)}</b> WL units</span></div>`;
+  return (s.wuN ? row('Throws up to 60 mph', s.wuN, s.wuW) : '') + row('Throws over 60 mph', s.oN, s.oW) + `<div class="etrow tot"><span>Total</span><span></span><span><b>${fmt(s.wuW + s.oW)}</b> WL units</span></div>`;
 }
 /* Reverse throws are part of the plyo warmup but are not counted in its throw total */
 const isReverse = it => it && it.kind === 'plyo' && /reverse/i.test(it.name || '');
-// Throw totals: plyo warmup separately, then every other throw (plyo high included)
+/* Throw totals split by speed: up to 60 mph (60 included) and over 60 mph.
+   A planned line's speed is the middle of its velocity range; plyo warmup and plyo lines with no range count as up to 60,
+   other lines with no range (mound, game warm-ups, game pitches) as over 60. Reverse throws are not counted. */
+const SPLIT_MPH = 60;
+function lineUpTo60(it, day) { const c = itemCat(it, day), r = bandRange(bandFor(it, day)); if (r) return (r[0] + r[1]) / 2 <= SPLIT_MPH; return isPlyoCat(c) && c !== 'plyo_hi'; }
 function splitPlanned(day) {
   const r = {wuN: 0, wuW: 0, oN: 0, oW: 0}; if (!day) return r;
   for (const it of day.items) { const n = it.kind === 'game' ? (+it.pitches || 0) : it.kind === 'ball' ? effN(it, day) : (+it.n || 0); const w = itemWL(it, day);
-    if (itemCat(it, day) === 'plyo_wu') { if (!isReverse(it)) r.wuN += n; r.wuW += w; } else { r.oN += n; r.oW += w; } }
+    if (lineUpTo60(it, day)) { if (!isReverse(it)) r.wuN += n; r.wuW += w; } else { if (!isReverse(it)) r.oN += n; r.oW += w; } }
   return r;
 }
+/* actual day: each reading at or under 60 mph and each plyo set with no speed range counts as up to 60 */
+function splitActual(d, s) {
+  if (!THROWS_BY_DAY) actualMode(d, 'cp');
+  let n = 0, w = 0; for (const t of THROWS_BY_DAY.get(d) || []) if (t[4] !== null && t[4] !== undefined && +t[4] <= SPLIT_MPH) n++; /* these carry no workload */
+  for (const p of (dayInfo.get(d)?.plyos || [])) { if (!(+p[1] > 0)) continue; const c = plyoCat(p), r = c === 'plyo_hi' ? bandRange(VBANDS.find(b => b.k === p[0])) : null;
+    if (r ? (r[0] + r[1]) / 2 <= SPLIT_MPH : c !== 'plyo_hi') { n += +p[1]; w += plyoWL(p); } }
+  return {wuN: n, wuW: w, oN: Math.max(0, s.r.n - n), oW: Math.max(0, s.r.wl - w)};
+}
 const splitRows = (wuN, wuW, oN, oW, cols) => { const R = s => `<td style="text-align:right">${s}</td>`; const row = (lab, n, w) => cols === 'units-first' ? `<tr><td><b>${lab}</b></td>${R(`<b>${fmt(w)}</b>`)}${R(`<b>${n}</b>`)}</tr>` : `<tr><td><b>${lab}</b></td><td></td><td></td>${R(`<b>${n}</b>`)}<td></td>${R(`<b>${fmt(w)}</b>`)}</tr>`;
-  return (wuN ? row('Plyo warmup total', wuN, wuW) : '') + row('All other throws', oN, oW) + (wuN ? (cols === 'units-first' ? `<tr><td><b>Total WL units</b></td>${R(`<b>${fmt(wuW + oW)}</b>`)}<td></td></tr>` : `<tr><td><b>Total WL units</b></td><td></td><td></td><td></td><td></td>${R(`<b>${fmt(wuW + oW)}</b>`)}</tr>`) : ''); };
+  return (wuN ? row('Throws up to 60 mph', wuN, wuW) : '') + row('Throws over 60 mph', oN, oW) + (wuN ? (cols === 'units-first' ? `<tr><td><b>Total WL units</b></td>${R(`<b>${fmt(wuW + oW)}</b>`)}<td></td></tr>` : `<tr><td><b>Total WL units</b></td><td></td><td></td><td></td><td></td>${R(`<b>${fmt(wuW + oW)}</b>`)}</tr>`) : ''); };
 function itemsSummary(day) {
   if (!day || !day.items.length) return '';
   let wu = 0, pl = 0, cp = 0, md = 0, bp = 0, ups = 0, gp = 0, inn = 0;
@@ -2245,8 +2257,8 @@ function actualRowsTable(d, s) {
     const est = o.estN ? `<span style="opacity:.7">${o.estN === o.n ? 'estimated' : o.estN + ' est.'}</span>` : '';
     rows += row(c, [v, est].filter(Boolean).join(' · '), o.n, '–', o.wl);
   }
-  const w = s.r.g.plyo_wu || {n: 0, wl: 0, est: 0};
-  return `<table>${TIP_HEAD}<tbody>${rows}${splitRows(w.n, w.wl + w.est, s.r.n - w.n, s.r.wl - w.wl - w.est)}</tbody></table>`;
+  const sa = splitActual(d, s);
+  return `<table>${TIP_HEAD}<tbody>${rows}${splitRows(sa.wuN, sa.wuW, sa.oN, sa.oW)}</tbody></table>`;
 }
 const AC_TARGETS = [1.30, 1.20, 1.10, 1.05, 1.00, 0.95, 0.90, 0.80];
 function targetsTip(d, r) {
@@ -3423,7 +3435,7 @@ function pdfWeekPages(from, to, opt) {
       }
       if (!outside && day && day.items.length) { const sp = splitPlanned(day); const fy = y0 + 33 + 4 + notesH + mtH + 10 + bodyRows * RH + 9;
         pg.line(x + 3, fy - 6.5, x + cw - 3, fy - 6.5, LINE, 0.4);
-        pg.text(cA, fy, sp.wuN ? `Plyo WU ${sp.wuN} · Other ${sp.oN}` : `Throws ${sp.oN}`, {size: 5.9, bold: true, color: GREY, w: cw - 34}); pg.text(cU, fy, fmt(sp.wuW + sp.oW), {size: 6, bold: true, align: 'right'}); }
+        pg.text(cA, fy, sp.wuN ? `Up to 60 mph ${sp.wuN} · Over 60 ${sp.oN}` : `Over 60 mph ${sp.oN}`, {size: 5.9, bold: true, color: GREY, w: cw - 34}); pg.text(cU, fy, fmt(sp.wuW + sp.oW), {size: 6, bold: true, align: 'right'}); }
     });
     for (let i = 0; i <= 7; i++) pg.line(X + i * cw, y0, X + i * cw, y + h - 2, LINE, 0.5);
     pg.line(X, y + h - 2, X + W, y + h - 2, LINE, 0.5);
@@ -3663,7 +3675,7 @@ function renderPlayerInner() {
       ${day && day.note ? `<div class="pv-note">📝 ${esc(day.note)}</div>` : ''}
       ${ml ? `<div class="pv-mound">${ml.split('\\n').map(esc).join('<br>')}</div>` : ''}
       ${day && day.items.length ? pvItems(day, d) : '<p class="muted">No throwing planned. Rest up.</p>'}
-      ${planN ? `${psp.wuN ? `<div class="pv-total"><span>Plyo warmup total</span><span class="pv-tn"><b>${psp.wuN}</b><small>throws</small></span></div>` : ''}<div class="pv-total"${psp.wuN ? ' style="margin-top:4px;border-top:0;padding-top:0"' : ''}><span>All other throws</span><span class="pv-tn"><b>${psp.oN}</b><small>throws</small></span></div>` : ''}
+      ${planN ? `${psp.wuN ? `<div class="pv-total"><span>Throws up to 60 mph</span><span class="pv-tn"><b>${psp.wuN}</b><small>throws</small></span></div>` : ''}<div class="pv-total"${psp.wuN ? ' style="margin-top:4px;border-top:0;padding-top:0"' : ''}><span>Throws over 60 mph</span><span class="pv-tn"><b>${psp.oN}</b><small>throws</small></span></div>` : ''}
     </div>
     ${PV.reporting || !pvShowVT(PV.date) ? '' : pvVeloCard()}
     ${PV.reporting ? pvReportForm(d, day) : `<div class="pv-card pv-rep">
