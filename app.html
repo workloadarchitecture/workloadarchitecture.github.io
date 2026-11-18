@@ -322,7 +322,7 @@ table.pt td[data-tip] { cursor: help; }
 .cday .u .f-del { padding: 0 4px; min-height: 0; }
 .etot { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 4px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .etrow { display: grid; grid-template-columns: 1fr auto auto; gap: 4px 14px; padding: 1px 0; } .etrow span:nth-child(n+2) { text-align: right; min-width: 70px; } .etrow.tot { border-top: 1px dashed var(--line); margin-top: 2px; padding-top: 3px; font-weight: 600; }
-.cday .etot[data-compact] { font-size: 10.5px; } .cday .etot[data-compact] .etrow { grid-template-columns: 1fr auto; gap: 0 6px; } .cday .etot[data-compact] .etrow span:nth-child(2) { min-width: 0; } .etrow.hd { color: var(--muted); font-size: 9.5px; }
+.cday .etot[data-compact] { font-size: 10.5px; } .cday .etot[data-compact] .etrow { grid-template-columns: 1fr auto auto; gap: 0 6px; } .cday .etot[data-compact] .etrow span:nth-child(n+2) { min-width: 26px; } .etrow.hd { color: var(--muted); font-size: 9.5px; }
 .dayone .cday .etot { font-size: 14px; }
 .mvb { display: inline-flex; }
 .caltools .pk summary { font-size: 13px; color: var(--ink); padding: 5px 10px; min-height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; } .caltools .pk .legend { left: 0; right: auto; z-index: 25; } .pkopt { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--ink); cursor: pointer; } .f-mv { padding: 0 4px; min-height: 0; } .f-mv:disabled { opacity: .3; cursor: default; } .dayone .f-mv { font-size: 18px; padding: 4px 8px; }
@@ -457,7 +457,10 @@ select.f-type.none { color: var(--muted); border-style: dashed; }
 td.sr-ok { color: var(--good); font-weight: 600; } td.sr-mid { color: var(--warn); font-weight: 600; } td.sr-bad { color: var(--bad); font-weight: 600; }
 .pv-what { font-weight: 600; } .pv-n { margin-top: 1px; } .pv-i { font-size: 13px; margin-top: 1px; } .pv-int { font-weight: 600; }
 .pv-fill { font-size: 12px; font-weight: 700; color: var(--note-ink); background: var(--note-bg); border-radius: 4px; padding: 1px 6px; display: inline-block; margin-top: 3px; }
-.pv-total { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-weight: 700; display: flex; justify-content: space-between; align-items: center; } .pv-tn { text-align: right; line-height: 1.1; } .pv-tn b { font-size: 26px; font-weight: 800; display: block; } .pv-tn small { font-size: 11px; color: var(--muted); font-weight: 400; }
+.pv-total { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-weight: 700; display: flex; justify-content: space-between; align-items: center; } .pv-tn { text-align: right; line-height: 1.1; }
+.pv-split { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-variant-numeric: tabular-nums; }
+.pv-split .pv-sum { border-top: 1px dashed var(--line); padding-top: 4px; }
+.tip tr.sumrow td { border-top: 1px dashed rgba(127,127,127,.5) !important; padding-top: 2px; } .pv-tn b { font-size: 26px; font-weight: 800; display: block; } .pv-tn small { font-size: 11px; color: var(--muted); font-weight: 400; }
 .pswitch { margin-top: 4px; gap: 6px; } .pswitch select { min-width: 200px; } #padd { display: inline-flex; gap: 4px; }
 .pvset { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 12px; } .pvset-l { font-size: 12.5px; color: var(--muted); font-weight: 600; margin-right: 4px; }
 .pv-eff { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin: 6px 0 4px; background: var(--sunk); } .pv-eff summary { font-weight: 600; font-size: 14px; color: var(--accent); cursor: pointer; } .pv-eff table { width: 100%; margin-top: 6px; font-size: 14px; } .pv-eff td, .pv-eff th { padding: 4px 6px; border: 0; } .pv-eff th { font-size: 11px; color: var(--muted); text-align: left; text-transform: uppercase; }
@@ -543,7 +546,7 @@ body.live .pv-preview { display: none; }
 #ch-tl .tlr{font-size:10.5px;fill:var(--muted)}#ch-tl .tlbad{fill:var(--bad);font-weight:700}
 #tl-table td.bad{color:var(--bad);font-weight:600}#tl-table td.ok{color:var(--good)}#tl-table tr.inn td:first-child{padding-left:18px}
 .tlplyo{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:10px;font-size:13px}.tlplyo input[type=time]{width:110px}
-.mtrow td{background:color-mix(in srgb,#EF9F27 16%,transparent);color:var(--ink)}.tip-mt{margin-top:4px}.mt-ok{color:var(--good)}.mt-off{color:#b8860b}
+.mtrow td{padding:2px 0 !important;white-space:nowrap}.mtrow .mtl{display:block;background:rgba(239,159,39,.22);color:inherit;padding:1px 6px;border-radius:4px}.tip .mtrow .mtl{background:rgba(239,159,39,.32)}.tip-mt{margin-top:4px}.mt-ok{color:var(--good)}.mt-off{color:#b8860b}
 .pv-mt{background:color-mix(in srgb,#EF9F27 16%,transparent);border-radius:8px;padding:6px 9px;margin:4px 0 6px}.pv-mt small{display:block;color:var(--muted)}
 .cmtc{display:flex;flex-wrap:wrap;gap:1px 5px;align-items:center;font-size:10.5px;line-height:1;margin:2px 0;color:var(--muted)}.cmtc label{display:inline-flex;align-items:center;gap:2px;margin:0;white-space:nowrap}.cell .cmtc input[type="number"]{width:28px;min-height:0;height:17px;padding:0 2px;font-size:10.5px;line-height:15px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--ink);-moz-appearance:textfield;appearance:textfield}.cmtc input::-webkit-outer-spin-button,.cmtc input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.cmtc input.one{font-weight:700;border-color:#EF9F27}
 .erange{font-size:11px;color:#1f62b0;margin-top:2px}
@@ -1759,7 +1762,7 @@ function applyVersionTicks(v) {
 }
 const modeDiff = (v, t) => { const df = v - t; return df === 0 ? 'on target' : `${Math.abs(df)} mph ${df > 0 ? 'above' : 'below'}`; };
 /* planned day: one 🎯 line per group, after that group's last line */
-function mtRowHTML(k, t, cols) { return `<tr class="mtrow"><td></td><td colspan="${cols}">🎯 Mode target <b>${t.mph} mph</b> · the speed most ${modeWho(k)} should sit at${t.day ? ' <span style="opacity:.75">(this day only)</span>' : t.dayType ? ` <span style="opacity:.75">(${esc(t.dayType)} days)</span>` : ''}</td></tr>`; }
+function mtRowHTML(k, t, cols) { return `<tr class="mtrow"><td colspan="${cols + 1}"><span class="mtl">🎯 ${esc(MODE_LABEL[k])} mode target <b>${t.mph} mph</b>${t.day ? ' · this day only' : t.dayType ? ` · ${esc(t.dayType)} days` : ''}</span></td></tr>`; }
 /* actual day: mode and target per group */
 function mtActualHTML(d) {
   if (!SHOW_MT) return '';
@@ -2086,35 +2089,36 @@ const CP_BANDS = new Set(['warmup', 'loosen', 'rampup', 'longtoss', 'pulldown', 
 // Totals under a day's editor (live while counts change)
 function editTotals(date, compact) {
   const day = B.draft[date]; if (!day || !day.items.length) return '';
-  const s = splitPlanned(day);
-  if (compact) { const row = (k, n, w) => `<div class="etrow"><span>${k}</span><span><b>${n}</b> · ${fmt(w)}</span></div>`;
-    return `<div class="etrow hd"><span></span><span>throws · WL units</span></div>` + (s.wuN ? row('≤60 mph', s.wuN, s.wuW) : '') + row('>60 mph', s.oN, s.oW) + `<div class="etrow tot"><span>Total</span><span>${fmt(s.wuW + s.oW)} u</span></div>`; }
-  const row = (k, n, w) => `<div class="etrow"><span>${k}</span><span><b>${n}</b> throws</span><span><b>${fmt(w)}</b> WL units</span></div>`;
-  return (s.wuN ? row('Throws up to 60 mph', s.wuN, s.wuW) : '') + row('Throws over 60 mph', s.oN, s.oW) + `<div class="etrow tot"><span>Total</span><span></span><span><b>${fmt(s.wuW + s.oW)}</b> WL units</span></div>`;
+  const s = splitPlanned(day), parts = SPLIT_LABELS.filter(([k]) => k === 'o' || s[k + 'N']);
+  const lab = compact ? {z: 'Plyo WU ≤60', wu: 'Plyo WU >60', o: 'All other'} : null;
+  const row = (k, l, sub) => `<div class="etrow"><span>${compact ? lab[k] : l + (sub ? ` <small class="muted">(${sub})</small>` : '')}</span><span><b>${s[k + 'N']}</b></span><span>${fmt(s[k + 'W'])}</span></div>`;
+  return `<div class="etrow hd"><span></span><span>throws</span><span>${compact ? 'WL' : 'WL units'}</span></div>` + parts.map(([k, l, sub]) => row(k, l, sub)).join('') +
+    `<div class="etrow tot"><span>Total</span><span>${s.zN + s.wuN + s.oN}</span><span>${fmt(s.zW + s.wuW + s.oW)}</span></div>`;
 }
 /* Reverse throws are part of the plyo warmup but are not counted in its throw total */
 const isReverse = it => it && it.kind === 'plyo' && /reverse/i.test(it.name || '');
-/* Throw totals split by speed: up to 60 mph (60 included) and over 60 mph.
-   A planned line's speed is the middle of its velocity range; plyo warmup and plyo lines with no range count as up to 60,
-   other lines with no range (mound, game warm-ups, game pitches) as over 60. Reverse throws are not counted. */
-const SPLIT_MPH = 60;
-function lineUpTo60(it, day) { const c = itemCat(it, day), r = bandRange(bandFor(it, day)); if (r) return (r[0] + r[1]) / 2 <= SPLIT_MPH; return isPlyoCat(c) && c !== 'plyo_hi'; }
+/* Throw totals: plyo warmup at 60 mph and below (intensity 0), plyo warmup above 60 mph (intensity 1-5), then every other throw
+   (high-intensity plyos included). Reverse throws are not counted. */
+const wuLow = i => !(+i >= 1);
 function splitPlanned(day) {
-  const r = {wuN: 0, wuW: 0, oN: 0, oW: 0}; if (!day) return r;
+  const r = {zN: 0, zW: 0, wuN: 0, wuW: 0, oN: 0, oW: 0}; if (!day) return r;
   for (const it of day.items) { const n = it.kind === 'game' ? (+it.pitches || 0) : it.kind === 'ball' ? effN(it, day) : (+it.n || 0); const w = itemWL(it, day);
-    if (lineUpTo60(it, day)) { if (!isReverse(it)) r.wuN += n; r.wuW += w; } else { if (!isReverse(it)) r.oN += n; r.oW += w; } }
+    if (itemCat(it, day) === 'plyo_wu') { const k = wuLow(it.i) ? 'z' : 'wu'; if (!isReverse(it)) r[k + 'N'] += n; r[k + 'W'] += w; } else { r.oN += n; r.oW += w; } }
   return r;
 }
-/* actual day: each reading at or under 60 mph and each plyo set with no speed range counts as up to 60 */
+/* actual day: plyo warmup sets by their logged intensity; every other throw and plyo in the last count */
 function splitActual(d, s) {
-  if (!THROWS_BY_DAY) actualMode(d, 'cp');
-  let n = 0, w = 0; for (const t of THROWS_BY_DAY.get(d) || []) if (t[4] !== null && t[4] !== undefined && +t[4] <= SPLIT_MPH) n++; /* these carry no workload */
-  for (const p of (dayInfo.get(d)?.plyos || [])) { if (!(+p[1] > 0)) continue; const c = plyoCat(p), r = c === 'plyo_hi' ? bandRange(VBANDS.find(b => b.k === p[0])) : null;
-    if (r ? (r[0] + r[1]) / 2 <= SPLIT_MPH : c !== 'plyo_hi') { n += +p[1]; w += plyoWL(p); } }
-  return {wuN: n, wuW: w, oN: Math.max(0, s.r.n - n), oW: Math.max(0, s.r.wl - w)};
+  const r = {zN: 0, zW: 0, wuN: 0, wuW: 0};
+  for (const p of (dayInfo.get(d)?.plyos || [])) { if (!(+p[1] > 0) || plyoCat(p) !== 'plyo_wu') continue; const k = wuLow(p[2]) ? 'z' : 'wu'; r[k + 'N'] += +p[1]; r[k + 'W'] += plyoWL(p); }
+  r.oN = Math.max(0, s.r.n - r.zN - r.wuN); r.oW = Math.max(0, s.r.wl - r.zW - r.wuW); return r;
 }
-const splitRows = (wuN, wuW, oN, oW, cols) => { const R = s => `<td style="text-align:right">${s}</td>`; const row = (lab, n, w) => cols === 'units-first' ? `<tr><td><b>${lab}</b></td>${R(`<b>${fmt(w)}</b>`)}${R(`<b>${n}</b>`)}</tr>` : `<tr><td><b>${lab}</b></td><td></td><td></td>${R(`<b>${n}</b>`)}<td></td>${R(`<b>${fmt(w)}</b>`)}</tr>`;
-  return (wuN ? row('Throws up to 60 mph', wuN, wuW) : '') + row('Throws over 60 mph', oN, oW) + (wuN ? (cols === 'units-first' ? `<tr><td><b>Total WL units</b></td>${R(`<b>${fmt(wuW + oW)}</b>`)}<td></td></tr>` : `<tr><td><b>Total WL units</b></td><td></td><td></td><td></td><td></td>${R(`<b>${fmt(wuW + oW)}</b>`)}</tr>`) : ''); };
+const SPLIT_LABELS = [['z', 'Plyo warmup ≤60 mph', 'intensity 0'], ['wu', 'Plyo warmup >60 mph', 'intensity 1–5'], ['o', 'All other throws', '']];
+const splitRows = (sp, cols) => { const R = s => `<td style="text-align:right">${s}</td>`;
+  const row = (lab, n, w) => cols === 'units-first' ? `<tr><td><b>${lab}</b></td>${R(`<b>${fmt(w)}</b>`)}${R(`<b>${n}</b>`)}</tr>` : `<tr><td><b>${lab}</b></td><td></td><td></td>${R(`<b>${n}</b>`)}<td></td>${R(`<b>${fmt(w)}</b>`)}</tr>`;
+  const parts = SPLIT_LABELS.filter(([k]) => k === 'o' || sp[k + 'N']); let out = parts.map(([k, lab, sub]) => row(lab + (sub ? ` <span style="opacity:.65;font-weight:400">(${sub})</span>` : ''), sp[k + 'N'], sp[k + 'W'])).join('');
+  if (parts.length > 1) { const tn = sp.zN + sp.wuN + sp.oN, tw = sp.zW + sp.wuW + sp.oW;
+    out += cols === 'units-first' ? `<tr class="sumrow"><td><b>Total</b></td>${R(`<b>${fmt(tw)}</b>`)}${R(`<b>${tn}</b>`)}</tr>` : `<tr class="sumrow"><td><b>Total</b></td><td></td><td></td>${R(`<b>${tn}</b>`)}<td></td>${R(`<b>${fmt(tw)}</b>`)}</tr>`; }
+  return out; };
 function itemsSummary(day) {
   if (!day || !day.items.length) return '';
   let wu = 0, pl = 0, cp = 0, md = 0, bp = 0, ups = 0, gp = 0, inn = 0;
@@ -2239,7 +2243,7 @@ function planRowsTable(day, d) {
     return tr + (tgt ? mtRowHTML(kk, tgt, 5) : '');
   }).join('');
   const sp = splitPlanned(day);
-  return `<table>${TIP_HEAD}<tbody>${rows}${splitRows(sp.wuN, sp.wuW, sp.oN, sp.oW)}</tbody></table>`;
+  return `<table>${TIP_HEAD}<tbody>${rows}${splitRows(sp)}</tbody></table>`;
 }
 /* Actual day, line by line: self-reported lines as entered; otherwise each plyo set (ball, count, intensity) and each measured throw type with its velocity */
 function actualRowsTable(d, s) {
@@ -2258,7 +2262,7 @@ function actualRowsTable(d, s) {
     rows += row(c, [v, est].filter(Boolean).join(' · '), o.n, '–', o.wl);
   }
   const sa = splitActual(d, s);
-  return `<table>${TIP_HEAD}<tbody>${rows}${splitRows(sa.wuN, sa.wuW, sa.oN, sa.oW)}</tbody></table>`;
+  return `<table>${TIP_HEAD}<tbody>${rows}${splitRows(sa)}</tbody></table>`;
 }
 const AC_TARGETS = [1.30, 1.20, 1.10, 1.05, 1.00, 0.95, 0.90, 0.80];
 function targetsTip(d, r) {
@@ -2288,7 +2292,7 @@ function renderCalendar() {
         ${day && day.note ? `<div class="cnote" title="${esc(day.note)}">📝 ${esc(day.note)}</div>` : ''}
         ${(() => { const rp = selfReports.get(d); const lo = rp ? feelLow(rp.feel) : []; return lo.length ? `<div class="feelflag" title="Player reported${rp.feelNote ? `: ${esc(rp.feelNote)}` : ''}">⚠ ${esc(lo.join(' · '))}</div>` : ''; })()}
         <div class="cbody"${day && day.items.length ? ` data-tip="${esc(dayPlanTip(d, day))}"` : ''}>
-          ${p || act !== null ? `<div class="pa">${p ? (() => { const sp = splitPlanned(day); return `<span title="${sp.oN} throws${sp.wuN ? ` plus ${sp.wuN} plyo warmup` : ''} · ${fmt(p)} workload units"><em class="plab">Plan </em><b class="pthr">${sp.oN}</b><i class="psl">/</i><b>${fmt(p)}</b></span>`; })() : '<span></span>'}${act !== null ? `<span>Act <b class="${diff > 0 ? 'diffpos' : 'diffneg'}">${fmt(act)}</b></span>` : ''}</div>` : ''}
+          ${p || act !== null ? `<div class="pa">${p ? (() => { const sp = splitPlanned(day); return `<span title="${sp.oN} throws${sp.zN + sp.wuN ? ` plus ${sp.zN + sp.wuN} plyo warmup` : ''} · ${fmt(p)} workload units"><em class="plab">Plan </em><b class="pthr">${sp.oN}</b><i class="psl">/</i><b>${fmt(p)}</b></span>`; })() : '<span></span>'}${act !== null ? `<span>Act <b class="${diff > 0 ? 'diffpos' : 'diffneg'}">${fmt(act)}</b></span>` : ''}</div>` : ''}
           ${(() => { const pr = (B.rbasis === 'actual' && hasActual(d)) ? PM.get(d) : RM.get(d); const ae = hasActual(d) ? AM.get(d) : null; const pv = pr && p ? pr.ac : null; const av = ae && d >= acFrom() ? ae.ac9 : null; if (pv === null && av === null) return ''; return `<div class="acr">${pv !== null ? `<span>ACWR <b class="${acCls(pv, pr.ready)}">${fmt(pv, 2)}</b></span>` : '<span></span>'}${av !== null ? `<span>Act <b class="${acCls(av, acReady(d))}">${fmt(av, 2)}</b></span>` : ''}</div>`; })()}
         </div>
         ${calMT(d, day)}
@@ -3435,7 +3439,7 @@ function pdfWeekPages(from, to, opt) {
       }
       if (!outside && day && day.items.length) { const sp = splitPlanned(day); const fy = y0 + 33 + 4 + notesH + mtH + 10 + bodyRows * RH + 9;
         pg.line(x + 3, fy - 6.5, x + cw - 3, fy - 6.5, LINE, 0.4);
-        pg.text(cA, fy, sp.wuN ? `Up to 60 mph ${sp.wuN} · Over 60 ${sp.oN}` : `Over 60 mph ${sp.oN}`, {size: 5.9, bold: true, color: GREY, w: cw - 34}); pg.text(cU, fy, fmt(sp.wuW + sp.oW), {size: 6, bold: true, align: 'right'}); }
+        pg.text(cA, fy, sp.zN || sp.wuN ? `Plyo WU to 60: ${sp.zN} · over 60: ${sp.wuN} · Other ${sp.oN}` : `Throws ${sp.oN}`, {size: 5.9, bold: true, color: GREY, w: cw - 34}); pg.text(cU, fy, fmt(sp.zW + sp.wuW + sp.oW), {size: 6, bold: true, align: 'right'}); }
     });
     for (let i = 0; i <= 7; i++) pg.line(X + i * cw, y0, X + i * cw, y + h - 2, LINE, 0.5);
     pg.line(X, y + h - 2, X + W, y + h - 2, LINE, 0.5);
@@ -3642,7 +3646,7 @@ function renderPlayerInner() {
   const lab = dayLabel(d); const ml = day ? moundLine(day) : '';
   const rep0 = selfReports.get(d);
   const meas = DEVICE_DATES.has(d) && hasActual(d) ? measuredDay(d) : null;
-  const psp = splitPlanned(day); const planN = psp.wuN + psp.oN;
+  const psp = splitPlanned(day); const planN = psp.zN + psp.wuN + psp.oN;
   const week = dateRange(weekStart(d), addDays(weekStart(d), 6));
   const ser = pvSeries(); const ew = ser.get(d), ewPrev = ser.get(addDays(d, -1));
   const planWL = dayPlanWL(day); const actWL = hasActual(d) ? actualWL(d) : null;
@@ -3675,7 +3679,7 @@ function renderPlayerInner() {
       ${day && day.note ? `<div class="pv-note">📝 ${esc(day.note)}</div>` : ''}
       ${ml ? `<div class="pv-mound">${ml.split('\\n').map(esc).join('<br>')}</div>` : ''}
       ${day && day.items.length ? pvItems(day, d) : '<p class="muted">No throwing planned. Rest up.</p>'}
-      ${planN ? `${psp.wuN ? `<div class="pv-total"><span>Throws up to 60 mph</span><span class="pv-tn"><b>${psp.wuN}</b><small>throws</small></span></div>` : ''}<div class="pv-total"${psp.wuN ? ' style="margin-top:4px;border-top:0;padding-top:0"' : ''}><span>Throws over 60 mph</span><span class="pv-tn"><b>${psp.oN}</b><small>throws</small></span></div>` : ''}
+      ${planN ? `<div class="pv-total pv-split">${[['z', 'Plyo warmup, 60 mph and below'], ['wu', 'Plyo warmup, above 60 mph'], ['o', 'All other throws']].filter(([k]) => k === 'o' || psp[k + 'N']).map(([k, l]) => `<span>${l}</span><span class="pv-tn"><b>${psp[k + 'N']}</b></span>`).join('')}${psp.zN || psp.wuN ? `<span class="pv-sum">Total throws</span><span class="pv-tn pv-sum"><b>${planN}</b></span>` : ''}</div>` : ''}
     </div>
     ${PV.reporting || !pvShowVT(PV.date) ? '' : pvVeloCard()}
     ${PV.reporting ? pvReportForm(d, day) : `<div class="pv-card pv-rep">
