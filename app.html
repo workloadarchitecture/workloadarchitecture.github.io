@@ -141,6 +141,7 @@ tr.total td { font-weight: 600; border-top: 2px solid var(--line); }
 .pill.warn { background: var(--warn-soft); color: var(--warn); }
 .pill.bad { background: var(--bad-soft); color: var(--bad); }
 .pill.info { background: var(--accent-soft); color: var(--accent); }
+#dt-details summary{cursor:pointer;list-style-position:inside}.dt-table select{min-height:0;padding:2px 6px;font-size:13px}.dt-table tr.dt-miss td{background:var(--warn-soft)}
 .big { font-family: var(--font-display); font-size: 26px; font-weight: 700; line-height: 1; }
 .checkgrid td:first-child { width: 34%; }
 details { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
@@ -627,7 +628,13 @@ body.live .pv-preview { display: none; }
     <div class="panel">
       <div class="panel-head"><h2>Averages by day type</h2><span class="note" id="ex-scope" style="margin:0"></span></div>
       <div class="tablewrap"><table id="ex-table"></table></div>
-      <p class="note">Counts only days with at least one throw in the selected throw types. Hover any number for its breakdown by throw type. Mode mph is the whole-number velocity thrown most often. Velocity uses throws with a reading; logged plyos have none. Will's logged plyos are sorted by intensity: 1–3 light/moderate, 4–5 high.</p>
+      <p class="note">Counts only days with at least one throw in the selected throw types, measured or self-reported. A day's type is the one logged for it; if none was logged, the player's report, then the plan, supplies it (hover a day to see which). Hover any number for its breakdown by throw type. Mode mph is the whole-number velocity thrown most often. Velocity uses throws with a reading; logged plyos have none. Will's logged plyos are sorted by intensity: 1–3 light/moderate, 4–5 high.</p>
+    </div>
+    <div class="panel" id="dt-panel" hidden>
+      <details id="dt-details"><summary><b>Set or correct day types</b> <span class="note" id="dt-scope" style="margin:0"></span></summary>
+        <div class="tablewrap"><table id="dt-table" class="dt-table"></table></div>
+        <p class="note">Every day in the date range with throws, measured or reported. Pick a type to set it; a type you set wins over the player's report and the plan, and is saved for every coach and in the averages above. "Use report / plan" removes your setting so the day goes back to where it came from.</p>
+      </details>
     </div>
     <div class="panel">
       <div class="panel-head tight"><div class="ph-left"><h2>Daily workload</h2><div class="acalert" id="ac-alert"></div></div><details class="keydd"><summary>Key</summary><div class="legend" id="lg-daily"></div></details></div>
@@ -656,7 +663,7 @@ body.live .pv-preview { display: none; }
       <div class="panel-head"><h2>Self-report accuracy</h2><span class="note" id="sr-scope" style="margin:0"></span></div>
       <div id="sr-sum" class="sr-sum"></div>
       <div class="tablewrap"><table id="sr-table"></table></div>
-      <p class="note">A self-report counts as the day's actual until radar, Trackman or game data comes in for that date; then the measured data takes over and the report is kept here for feedback.</p>
+      <p class="note">Self-reports and measured data are combined, one throw type at a time. Where radar, Trackman or game data covers a throw type that day, the measured numbers are used; anything only the player reported (plyos, catch play without a radar, and so on) still counts. Off by compares only the throw types that were measured.</p>
     </div>
     <div class="panel" id="pt-panel">
       <div class="panel-head"><h2>Velocity by pitch type</h2><div class="maxrow"><span class="note" id="pt-scope" style="margin:0"></span><button type="button" id="pt-all">Expand all</button></div></div>
@@ -873,7 +880,7 @@ const normType = ty => TYPE_ALIASES[ty] || ty;
 const TYPE_GROUP = {'Plyo Recovery': 'Recovery', 'Recovery': 'Recovery', 'Low Moderate': 'Moderate', 'Moderate': 'Moderate', 'Moderate-High': 'Moderate', 'Touch & Feel': 'Moderate',
   'High': 'High', 'Side': 'High', 'Live BP': 'Live BP', 'Game': 'Game', 'Rehab Game': 'Rehab Game', 'TP-60': 'Recovery', 'TP-75': 'Recovery', 'TP-90': 'Recovery', 'TP-105': 'Moderate', 'TP-120': 'Moderate'};
 const groupMembers = g => DAY_TYPES.filter(ty => TYPE_GROUP[ty] === g);
-const GROUP_NOTE = {'Live BP': 'Also any day the game file marks as a sim game (SIM in the team code).', 'Game': 'Sim games from the game file count as Live BP, not Game.', 'Not logged': 'Days with throws but no day type in the log.'};
+const GROUP_NOTE = {'Live BP': 'Also any day the game file marks as a sim game (SIM in the team code).', 'Game': 'Sim games from the game file count as Live BP, not Game.', 'Not logged': 'Days with throws but no day type logged, reported or in the plan.'};
 const groupTip = g => `<b>${esc(g)}</b>${groupMembers(g).length ? ` includes:<br>${groupMembers(g).map(x => `<span style="white-space:nowrap">${esc(x)}</span>`).join(', ')}` : ''}${GROUP_NOTE[g] ? `<br>${GROUP_NOTE[g]}` : ''}`;
 const GROUPS_TIP = () => `<b>Day type groups</b><table>${GROUP_ORDER.filter(g => groupMembers(g).length).map(g => `<tr><td><b>${esc(g)}</b></td><td style="white-space:normal">${groupMembers(g).map(x => `<span style="white-space:nowrap">${esc(x)}</span>`).join(', ')}</td></tr>`).join('')}</table>Sim games from the game file count as Live BP.`;
 const GROUP_ORDER = ['Off', 'Recovery', 'Moderate', 'High', 'Live BP', 'Game', 'Rehab Game', 'Not logged'];
@@ -963,10 +970,13 @@ const dayInfo = new Map(D.days.map(d => [d.date, d]));
 const throws = D.throws; // [date, time, src, ctx, mph, pitchType, est]
 const TODAY0 = (() => { const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; })();
 // A test pitcher lives in real time: no device data, history window ends yesterday
-const firstActual = IS_TEST ? addDays(TODAY0, -60) : throws.reduce((m, t) => t[0] < m ? t[0] : m, '9999');
-const lastActual = IS_TEST ? addDays(TODAY0, -1) : throws.reduce((m, t) => t[0] > m ? t[0] : m, '0000');
+/* actual days = device data, logged plyos and self-reports; recomputed when self-reports arrive */
+const DEV_FIRST = throws.reduce((m, t) => t[0] < m ? t[0] : m, '9999'), DEV_LAST = throws.reduce((m, t) => t[0] > m ? t[0] : m, '0000');
+let firstActual = IS_TEST ? addDays(TODAY0, -60) : DEV_FIRST;
+let lastActual = IS_TEST ? addDays(TODAY0, -1) : DEV_LAST;
 // Alerts need 28 days of throwing behind them. A streak breaks after 4+ straight days off (1-3 off days don't break it).
-const throwDates = [...new Set([...throws.map(r => r[0]), ...D.days.filter(x => (x.plyos && x.plyos.length) || (x.sheet && (x.sheet.cpT || x.sheet.plyoT))).map(x => x.date)])].sort();
+const DEV_THROW_DATES = [...new Set([...throws.map(r => r[0]), ...D.days.filter(x => (x.plyos && x.plyos.length) || (x.sheet && (x.sheet.cpT || x.sheet.plyoT))).map(x => x.date)])].sort();
+let throwDates = DEV_THROW_DATES.slice();
 /* ACWR restarts at each new season's first throw unless the coach carries it over (AC_RESTARTS = season start dates that restart) */
 let AC_RESTARTS = [];
 const crossesRestart = (a, b) => AC_RESTARTS.some(r => a < r && r <= b);
@@ -983,7 +993,18 @@ let streakStarts = streakStartsFrom(throwDates);
 window.__streak = () => ({streakStarts, first: throwDates.find(d => acReady(d))});
 const acReady = d => { let s = null; for (const x of streakStarts) { if (x <= d) s = x; else break; } return s !== null && d >= addDays(s, 28); };
 const plyoWL = p => { const b = PLYO_BASE[p[0]]; return b ? p[1] * b * mult(p[2]) : 0; };
-const typeOf = d => normType(dayInfo.get(d)?.type || 'Not logged');
+function plannedType(d) { let best = null; try { for (const v of versions) { const t = v.days && v.days[d] && v.days[d].type; if (t && (!best || (v.n || 0) > (best.n || 0))) best = {n: v.n, t}; } } catch (e) {} return best ? best.t : ''; }
+function typeInfo(d) {
+  const cs = DAY_SET.get(d); if (cs && cs.type) return {type: cs.type, src: 'coach'};
+  const lg = dayInfo.get(d)?.type; if (lg && DAY_CLEARED.get(d) !== lg) return {type: lg, src: 'logged'};
+  let rp = null; try { rp = selfReports.get(d); } catch (e) {} if (rp && rp.dayType) return {type: rp.dayType, src: 'reported'};
+  let has = false; try { has = AGG.has(d); } catch (e) {} const pt = has ? plannedType(d) : ''; if (pt) return {type: pt, src: 'plan'};
+  return {type: '', src: null};
+}
+const TYPE_SRC_NOTE = {coach: 'day type set by a coach', reported: 'day type from the player\'s report', plan: 'day type from the plan (none logged)'};
+const TYPE_SRC_LABEL = {coach: 'Set by coach', logged: 'Logged', reported: 'Player report', plan: 'Plan'};
+let DAY_SET = new Map(); const DAY_CLEARED = new Map(); /* coach-set day types (date -> {type, by, at}); cleared ones until a reload */
+const typeOf = d => normType(typeInfo(d).type || 'Not logged');
 const groupOf = d => isLive(d) ? 'Live BP' : (TYPE_GROUP[typeOf(d)] || typeOf(d));
 const LIVE = new Set(D.liveBP || []);
 const isLive = d => LIVE.has(d);
@@ -1049,7 +1070,7 @@ function dateRows(dates, cx, y0, showDates, showOpp) {
 let AGG = new Map();
 // Self-reports: kept on their own, and used as the day's actual only when no device data exists for that date
 let selfReports = new Map();
-const DEVICE_DATES = new Set();
+const DEVICE_DATES = new Set(), DEVICE_CATS = new Map();
 function reportItemWL(r) { return r.kind === 'game' ? GAME_BASE * (+r.n || 0) : itemWL({kind: r.kind, cat: r.cat, name: r.name, ball: r.ball, n: +r.n || 0, i: r.i, oz: 5}); }
 const reportTotals = rep0 => ({n: rep0.items.reduce((s, r) => s + (+r.n || 0), 0), wl: rep0.items.reduce((s, r) => s + reportItemWL(r), 0)});
 function buildAgg(mx) {
@@ -1065,7 +1086,9 @@ function buildAgg(mx) {
   }
   for (const d of D.days) for (const p of d.plyos) { const cat = plyoCat(p); const c = cell(d.date, cat, 0); c.n += p[1]; c.wl += plyoWL(p); }
   if (!DEVICE_DATES.size) for (const d of A.keys()) DEVICE_DATES.add(d);
-  for (const [d, rp] of selfReports) { if (DEVICE_DATES.has(d)) continue; for (const r of rp.items) { if (r.kind === 'plyo' || /^plyo/.test(r.cat || '')) r.cat = normPlyo(r.cat, r.i); if (!CTX_BY[r.cat]) continue; const c = cell(d, r.cat, 2); c.n += +r.n || 0; c.wl += reportItemWL(r); } }
+  if (!DEVICE_CATS.size) for (const [d, m] of A) DEVICE_CATS.set(d, new Set(Object.keys(m).map(k => k.split('|')[0])));
+  /* a self-report fills in what wasn't measured: any throw type with measured data that day uses the measured numbers instead */
+  for (const [d, rp] of selfReports) { const dc = DEVICE_CATS.get(d); for (const r of rp.items) { if (r.kind === 'plyo' || /^plyo/.test(r.cat || '')) r.cat = normPlyo(r.cat, r.i); const cat = r.kind === 'game' ? 'gp' : r.cat; if (!CTX_BY[cat] || (dc && dc.has(cat))) continue; const c = cell(d, cat, 2); c.n += +r.n || 0; c.wl += reportItemWL(r); } }
   return A;
 }
 function dayTotal(d, ctxSet, incEst) {
@@ -1254,13 +1277,13 @@ function renderChecks() {
 }
 
 // ---------- EXPLORE ----------
-const allTypes = () => { const s = new Set(); for (const d of new Set(throws.map(t => t[0]).concat(D.days.map(d => d.date)))) s.add(groupOf(d)); const order = GROUP_ORDER; return [...s].sort((a, b) => order.indexOf(a) - order.indexOf(b)); };
+const allTypes = () => { const s = new Set(); for (const d of new Set(throws.map(t => t[0]).concat(D.days.map(d => d.date), [...selfReports.keys()]))) s.add(groupOf(d)); const order = GROUP_ORDER; return [...s].sort((a, b) => order.indexOf(a) - order.indexOf(b)); };
 function setupExplore() {
   const f = S.ex; f.types = new Set(allTypes()); [f.from, f.to] = seasonActuals();
   const from = document.getElementById('f-from'), to = document.getElementById('f-to');
   from.value = f.from; to.value = f.to; from.min = to.min = firstActual; from.max = to.max = TODAY > lastActual ? TODAY : lastActual;
-  from.addEventListener('change', () => { if (from.value) { f.from = from.value; renderExplore(); } });
-  to.addEventListener('change', () => { if (to.value) { f.to = to.value; renderExplore(); } });
+  from.addEventListener('change', () => { if (from.value) { f.from = from.value; f.touched = true; renderExplore(); } });
+  to.addEventListener('change', () => { if (to.value) { f.to = to.value; f.touched = true; renderExplore(); } });
   document.getElementById('f-types').innerHTML = allTypes().map(t => `<label class="chip" data-tip="${esc(groupTip(t))}"><input type="checkbox" value="${esc(t)}" checked>${esc(t)}</label>`).join('');
   bindTips(document.getElementById('f-types'));
   document.getElementById('f-ctx').innerHTML = CTX.map(c => `<label class="chip"><input type="checkbox" value="${c.id}" checked><i class="swatch" style="background:${GROUPS.find(g => g.id === c.g).color}"></i>${c.label}</label>`).join('');
@@ -1272,6 +1295,29 @@ function setupExplore() {
   document.getElementById('lg-throws').innerHTML = GROUPS.map(g => `<span><i class="swatch" style="background:var(--sunk);box-shadow:inset 0 0 0 2px ${g.color}"></i>${g.label}</span>`).join('') + `<span><svg width="12" height="12" aria-hidden="true"><rect x="1" y="1" width="10" height="10" fill="var(--sunk)" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="2 2"/></svg>Estimated</span>`;
 }
 function measuredDay(d) { const m = AGG.get(d); const r = {n: 0, wl: 0}; if (!m || !DEVICE_DATES.has(d)) return null; for (const k in m) { if (k.endsWith('|2')) continue; r.n += m[k].n; r.wl += m[k].wl; } return r; }
+function renderDayTypeEditor(lo, hi) {
+  const pan = document.getElementById('dt-panel'); if (!pan) return; pan.hidden = !isCoach() || !db; if (pan.hidden) return;
+  const days = dateRange(lo, hi).filter(d => dayTotal(d, null, true).n > 0 || DAY_SET.has(d)).reverse();
+  const miss = days.filter(d => !typeInfo(d).src).length;
+  document.getElementById('dt-scope').textContent = `· ${days.length} day${days.length === 1 ? '' : 's'} with throws${miss ? `, ${miss} with no type` : ', all typed'}`;
+  if (miss && !pan.dataset.opened) { document.getElementById('dt-details').open = true; pan.dataset.opened = '1'; }
+  const tb = document.getElementById('dt-table');
+  if (!days.length) { tb.innerHTML = '<tbody><tr><td class="muted">No days with throws in these dates.</td></tr></tbody>'; return; }
+  tb.innerHTML = `<thead><tr><th>Day</th><th class="n">Throws</th><th class="n">WL units</th><th>Day type</th><th>From</th></tr></thead><tbody>${days.map(d => {
+    const ti = typeInfo(d), t = dayTotal(d, null, true), cur = ti.src ? normType(ti.type) : '';
+    const opts = `<option value=""${cur ? '' : ' selected'}>${ti.src === 'coach' ? 'Use report / plan' : '– not set –'}</option>` + DAY_TYPES.map(x => `<option${x === cur ? ' selected' : ''}>${esc(x)}</option>`).join('') + (cur && !DAY_TYPES.includes(cur) ? `<option selected>${esc(cur)}</option>` : '');
+    const by = ti.src === 'coach' && DAY_SET.get(d).by ? ` title="${esc(DAY_SET.get(d).by)}"` : '';
+    return `<tr${ti.src ? '' : ' class="dt-miss"'}><td>${DOW[dow(d)]} ${nice(d)}, ${d.slice(0, 4)}</td><td class="n">${t.n}</td><td class="n">${fmt(t.wl)}</td><td><select class="dt-sel" data-d="${d}" aria-label="Day type for ${nice(d)}">${opts}</select></td><td><span class="pill ${ti.src === 'coach' ? 'info' : ti.src ? 'good' : 'warn'}"${by}>${ti.src ? TYPE_SRC_LABEL[ti.src] : 'Not logged'}</span></td></tr>`; }).join('')}</tbody>`;
+}
+document.addEventListener('change', async e => { const sel = e.target.closest && e.target.closest('.dt-sel'); if (!sel || !db) return;
+  const d = sel.dataset.d, v = sel.value, prev = DAY_SET.get(d);
+  if (v) { DAY_SET.set(d, {type: v, by: '', at: new Date().toISOString()}); DAY_CLEARED.delete(d); }
+  else { if (prev) DAY_CLEARED.set(d, prev.type); DAY_SET.delete(d); }
+  renderExplore();
+  try { if (v) await db.collection(col('dayTypes')).doc(d).set({type: v}); else if (prev) await db.collection(col('dayTypes')).doc(d).delete();
+    setStatus(v ? `${nice(d)} is now ${v}.` : `${nice(d)} goes back to its report or plan type.`, 'ok'); }
+  catch (er) { if (prev) DAY_SET.set(d, prev); else DAY_SET.delete(d); renderExplore(); setStatus('Could not save the day type. Check your connection and try again.', 'err'); }
+});
 function renderReportAccuracy(lo, hi) {
   const rows = [...selfReports.entries()].filter(([d]) => d >= lo && d <= hi).sort((a, b) => a[0] < b[0] ? 1 : -1);
   const tbl = document.getElementById('sr-table'); if (!tbl) return;
@@ -1281,11 +1327,16 @@ function renderReportAccuracy(lo, hi) {
   const sig = v => v === null ? '–' : `${v > 0 ? '+' : ''}${v}%`;
   let cmp = 0, sumN = 0, sumW = 0;
   const body = rows.map(([d, rp]) => {
-    const R = reportTotals(rp), M = measuredDay(d);
+    const dc = DEVICE_CATS.get(d), rcat = r => r.kind === 'game' ? 'gp' : r.cat, its = (rp.items || []).filter(r => +r.n > 0);
+    const meas = its.filter(r => dc && dc.has(rcat(r))), kept = its.filter(r => !(dc && dc.has(rcat(r))));
+    /* compare only the throw types that were measured that day */
+    const R = reportTotals({items: meas.length ? meas : its}), M0 = measuredDay(d);
+    const M = M0 && meas.length ? (() => { const m = AGG.get(d), o = {n: 0, wl: 0}; const cs = new Set(meas.map(rcat)); for (const k in m) { const [c, e] = k.split('|'); if (e === '2' || !cs.has(c)) continue; o.n += m[k].n; o.wl += m[k].wl; } return o; })() : null;
+    const status = !meas.length ? '<span class="pill good">Used as actual</span>' : !kept.length ? '<span class="pill info">Replaced by measured</span>' : `<span class="pill warn" title="Measured: ${esc([...new Set(meas.map(r => CTX_BY[rcat(r)] ? CTX_BY[rcat(r)].short : rcat(r)))].join(', '))}. Still from the report: ${esc([...new Set(kept.map(r => CTX_BY[rcat(r)] ? CTX_BY[rcat(r)].short : rcat(r)))].join(', '))}.">Partly measured</span>`;
     if (M) { cmp++; sumN += Math.abs(pc(R.n, M.n) || 0); sumW += Math.abs(pc(R.wl, M.wl) || 0); }
     const cls = v => v === null ? '' : Math.abs(v) <= 10 ? 'sr-ok' : Math.abs(v) <= 25 ? 'sr-mid' : 'sr-bad';
     const dn = M ? pc(R.n, M.n) : null, dw = M ? pc(R.wl, M.wl) : null;
-    return `<tr><td>${DOW[dow(d)]} ${nice(d)}</td><td>${esc(rp.reporter || 'player')}</td><td class="n">${R.n}</td><td class="n">${M ? M.n : '–'}</td><td class="n ${cls(dn)}">${sig(dn)}</td><td class="n">${fmt(R.wl)}</td><td class="n">${M ? fmt(M.wl) : '–'}</td><td class="n ${cls(dw)}">${sig(dw)}</td><td>${M ? '<span class="pill info">Replaced by measured</span>' : '<span class="pill good">Used as actual</span>'}</td></tr>`;
+    return `<tr><td>${DOW[dow(d)]} ${nice(d)}</td><td>${esc(rp.reporter || 'player')}</td><td class="n">${R.n}</td><td class="n">${M ? M.n : '–'}</td><td class="n ${cls(dn)}">${sig(dn)}</td><td class="n">${fmt(R.wl)}</td><td class="n">${M ? fmt(M.wl) : '–'}</td><td class="n ${cls(dw)}">${sig(dw)}</td><td>${status}</td></tr>`;
   }).join('');
   tbl.innerHTML = `<thead><tr><th>Day</th><th>By</th><th class="n">Reported throws</th><th class="n">Measured</th><th class="n">Off by</th><th class="n">Reported WL units</th><th class="n">Measured</th><th class="n">Off by</th><th>Status</th></tr></thead><tbody>${body}</tbody>`;
   document.getElementById('sr-sum').innerHTML = cmp ? `<span><span class="k">Days compared</span><b>${cmp}</b></span><span><span class="k">Average miss, throws</span><b>${Math.round(sumN / cmp)}%</b></span><span><span class="k">Average miss, WL units</span><b>${Math.round(sumW / cmp)}%</b></span>` : '<span class="muted">No report has measured data to compare against yet.</span>';
@@ -1327,7 +1378,7 @@ function renderExplore() {
   const tips = s => {
     const D_ = s.days;
     const units = `<b>Average units per day, by throw type</b>` + ttable(['', 'Avg', 'Days thrown'], s.cats.map(c => [name(c), fmt(s.cat[c].wl / D_), `${s.cat[c].days} of ${D_}`]), ['All', fmt(s.avg), '']);
-    const oneDay = (x, what) => `<b>${dlong(x.d)}</b> · ${esc(x.t)}<br>${what}` + ttable(['', 'WL units', 'Throws'], CTX.map(c => c.id).filter(c => x.det[c] && x.det[c].n).map(c => [name(c), fmt(x.det[c].wl), x.det[c].n]), ['All', fmt(x.r.wl), x.r.n]);
+    const oneDay = (x, what) => `<b>${dlong(x.d)}</b> · ${esc(x.t)}${TYPE_SRC_NOTE[typeInfo(x.d).src] ? ` <span class="muted">(${TYPE_SRC_NOTE[typeInfo(x.d).src]})</span>` : ''}<br>${what}` + ttable(['', 'WL units', 'Throws'], CTX.map(c => c.id).filter(c => x.det[c] && x.det[c].n).map(c => [name(c), fmt(x.det[c].wl), x.det[c].n]), ['All', fmt(x.r.wl), x.r.n]);
     const throwsT = `<b>Average throws per day, by throw type</b>` + ttable(['', 'Avg', 'Days thrown'], s.cats.map(c => [name(c), fmt(s.cat[c].n / D_, 1), `${s.cat[c].days} of ${D_}`]), ['All', fmt(s.nAvg, 1), '']);
     const vcats = s.cats.filter(c => s.cat[c].vn);
     const velo = `<b>Velocity by throw type</b>` + (vcats.length ? ttable(['', 'Avg', 'Most thrown', 'Top'], vcats.map(c => { const m = histMode(s.cat[c].hist); return [name(c), fmt(s.cat[c].vs / s.cat[c].vn, 1), m ? `${m.v} <span style="opacity:.7">(${m.n}×)</span>` : '–', fmt(s.cat[c].vmax, 1)]; })) : '<br>No readings in these throw types.');
@@ -1341,7 +1392,7 @@ function renderExplore() {
   const tbl = document.getElementById('ex-table');
   tbl.innerHTML = sel.length ? head + `<tbody>${keys.map(k => row(k, stat(groups.get(k)))).join('')}${keys.length > 1 ? row('All days', stat(sel), 'total') : ''}</tbody>` : `<tbody><tr><td class="muted">No days match these filters. Widen the dates or tick more day types or throw types.</td></tr></tbody>`;
   bindTips(tbl);
-  renderReportAccuracy(lo, hi);
+  renderReportAccuracy(lo, hi); renderDayTypeEditor(lo, hi);
   drawDaily(dates, sel); tlRange(lo, hi); drawThrows(dates, sel); drawWeekly(lo, hi); drawVelo(dates, sel); renderPitchTable(lo, hi); renderBucketTable(lo, hi); drawMode(dates);
 }
 // ---------- Day timeline: each activity's start, end and the rest between them ----------
@@ -2496,7 +2547,7 @@ function setMode(mode) {
   renderWeek(); renderForecast();
 }
 const shiftMonth = (m, n) => { let y = +m.slice(0, 4), mo = +m.slice(5, 7) - 1 + n; y += Math.floor(mo / 12); mo = ((mo % 12) + 12) % 12; return `${y}-${String(mo + 1).padStart(2, '0')}`; };
-function hasActual(d) { return (d >= firstActual && d <= B.asOf && d <= lastActual) || (selfReports.has(d) && !DEVICE_DATES.has(d) && d <= addDays(B.asOf, 1)); }
+function hasActual(d) { return (d >= firstActual && d <= B.asOf && d <= lastActual) || (selfReports.has(d) && d <= addDays(B.asOf, 1)); }
 function renderWeek() {
   if (B.mode === 'month') { renderMonth(); return; }
   document.getElementById('b-cal').innerHTML = ''; document.getElementById('b-caltools').hidden = B.mode !== 'week'; const tip = document.querySelector('.caltip'); tip.hidden = B.mode !== 'week';
@@ -3547,6 +3598,7 @@ async function connectStore() {
     schedule = new Map(snap.docs.filter(d => d.exists && d.data().label).map(d => [d.id, String(d.data().label)]));
     if (S.view === 'explore') renderExplore();
   }, () => {});
+  try { db.collection(col('dayTypes')).onSnapshot(snap => { DAY_SET = new Map(snap.docs.filter(d => d.exists).map(d => [d.id, d.data()]).filter(([, v]) => v && v.type)); recalcSpan(); if (S.view === 'explore') renderExplore(); }, () => {}); } catch (e) {}
   try { db.collection(col('activityTimes')).onSnapshot(snap => { ACT_TIMES = new Map(snap.docs.filter(d => d.exists).map(d => [d.id, d.data()])); tlRedraw(); }, () => {}); } catch (e) {}
   db.collection(col('modeTargets')).onSnapshot(snap => {
     modeTargets = mtOverlay(snap.docs.filter(d => d.exists).map(d => ({id: d.id, ...d.data()})).filter(t => t.cat && t.from && typeof t.mph === 'number'));
@@ -3558,7 +3610,7 @@ async function connectStore() {
     // Open on the most recent saved version, unless a version was picked by hand or there are unsaved edits
     if (!B.versionPicked && !B.dirty) B.versionId = pickSeasonVersion();
     if (B.versionId !== 'blank' && !versions.find(v => v.id === B.versionId)) B.versionId = pickSeasonVersion();
-    renderVersionSelects();
+    renderVersionSelects(); try { recalcSpan(); if (S.view === 'explore') renderExplore(); } catch (e) {} /* planned day types fill in days with no logged type */
     if (!B.dirty) { B.draft = clone(curVersion().days); applyVersionTicks(curVersion()); if (S.view === 'builder') { renderWeek(); renderForecast(); } }
     if (B.dirty) document.getElementById('b-save').disabled = false;
   }, () => { setStatus('Lost the connection to saved versions. Reload the page to reconnect.', 'err'); });
@@ -3568,8 +3620,20 @@ async function connectStore() {
 const VIEWS = ['checks', 'explore', 'builder', 'player', 'data'];
 let rendered = {};
 // ---------- player view ----------
-window.__t = {get S() { return S; }, addReport: (d, r) => { selfReports.set(d, r); reportsChanged(); }};
-function reportsChanged() { AGG = buildAgg(S.max); if (S.view === 'player' && !PV.reporting) renderPlayer(); if (S.view === 'explore') renderExplore(); if (S.view === 'builder') { renderWeek(); renderForecast(); } }
+window.__t = {get S() { return S; }, typeOf: d => typeOf(d), typeInfo: d => typeInfo(d), wl: d => actualWL(d), tot: d => dayTotal(d, null, true), det: d => dayDetail(d, null, true), addReport: (d, r) => { selfReports.set(d, r); reportsChanged(); }};
+function recalcSpan() {
+  if (IS_TEST) return; const ks = [...selfReports.entries()].filter(([, r]) => r && (r.items || []).some(x => +x.n > 0)).map(([d]) => d).sort();
+  firstActual = ks.length && ks[0] < DEV_FIRST ? ks[0] : DEV_FIRST; lastActual = ks.length && ks[ks.length - 1] > DEV_LAST ? ks[ks.length - 1] : DEV_LAST;
+  throwDates = [...new Set([...DEV_THROW_DATES, ...ks])].sort(); streakStarts = streakStartsFrom(throwDates);
+  try { const f = S.ex, from = document.getElementById('f-from'), to = document.getElementById('f-to');
+    if (!f.touched) { [f.from, f.to] = seasonActuals(); from.value = f.from; to.value = f.to; }
+    from.min = to.min = firstActual; from.max = to.max = TODAY > lastActual ? TODAY : lastActual;
+    const have = new Set([...document.querySelectorAll('#f-types input')].map(i => i.value)), all = allTypes();
+    if (all.some(t => !have.has(t))) { all.forEach(t => { if (!have.has(t)) f.types.add(t); });
+      document.getElementById('f-types').innerHTML = all.map(t => `<label class="chip${f.types.has(t) ? '' : ' off'}" data-tip="${esc(groupTip(t))}"><input type="checkbox" value="${esc(t)}"${f.types.has(t) ? ' checked' : ''}>${esc(t)}</label>`).join(''); bindTips(document.getElementById('f-types')); }
+  } catch (e) {}
+}
+function reportsChanged() { AGG = buildAgg(S.max); recalcSpan(); if (S.view === 'player' && !PV.reporting) renderPlayer(); if (S.view === 'explore') renderExplore(); if (S.view === 'builder') { renderWeek(); renderForecast(); } }
 const PV = {date: null, reporting: false, draft: null, mode: 'day', month: null};
 let PSET = {proj: true, act: true, mode: false, acCarry: [], vtFrom: '', vtTo: '', mtFrom: '', mtTo: ''}; // what this pitcher's screen shows; coaches change it in Builder
 async function savePset() { if (!db) return; try { await db.collection(col('playerSettings')).doc('will').set(PSET); } catch (e) {} }
@@ -3754,13 +3818,13 @@ function renderPlayerInner() {
     f.querySelector('#pv-addcat').addEventListener('change', e => { const it = makeItem(e.target.value); PV.draft.push({cat: e.target.value, name: it.name, ball: it.ball, n: it.kind === 'game' ? 0 : 0, i: it.i ?? null, kind: it.kind}); renderPlayer(); });
     f.querySelector('.pv-eff').addEventListener('toggle', e => { PV.effOpen = e.target.open; });
     f.querySelector('#pv-nothrow').onclick = async () => {
-      const rec = {date: d, reporter: 'player', items: [], noThrow: true, feel: (({sleepH, ...x}) => x)(PV.feel || {}), feelNote: (PV.feelNote || '').trim(), when: new Date().toLocaleString('en-US', {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'})};
+      const rec = {date: d, reporter: 'player', dayType: (B.draft[d] && B.draft[d].type) || plannedType(d) || '', items: [], noThrow: true, feel: (({sleepH, ...x}) => x)(PV.feel || {}), feelNote: (PV.feelNote || '').trim(), when: new Date().toLocaleString('en-US', {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'})};
       selfReports.set(d, rec); PV.reporting = false; PV.draft = null; PV.feel = null; AGG = buildAgg(S.max); renderPlayer();
       if (db) { try { await db.collection(col('selfReports')).doc(d).set({...rec, submittedAt: new Date().toISOString()}); } catch (e) {} }
     };
     f.querySelector('#pv-cancel').onclick = () => { PV.reporting = false; PV.draft = null; PV.feel = null; renderPlayer(); };
     f.querySelector('#pv-send').onclick = async () => {
-      const rec = {date: d, reporter: 'player', items: PV.draft.filter(r => +r.n > 0), feel: (({sleepH, ...x}) => x)(PV.feel || {}), feelNote: (PV.feelNote || '').trim(), when: new Date().toLocaleString('en-US', {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'})};
+      const rec = {date: d, reporter: 'player', dayType: (B.draft[d] && B.draft[d].type) || plannedType(d) || '', items: PV.draft.filter(r => +r.n > 0), feel: (({sleepH, ...x}) => x)(PV.feel || {}), feelNote: (PV.feelNote || '').trim(), when: new Date().toLocaleString('en-US', {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'})};
       selfReports.set(d, rec); PV.reporting = false; PV.draft = null; PV.feel = null; AGG = buildAgg(S.max); renderPlayer();
       if (db) { try { await db.collection(col('selfReports')).doc(d).set({...rec, submittedAt: new Date().toISOString()}); } catch (e) {} }
     };
