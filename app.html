@@ -141,7 +141,7 @@ tr.total td { font-weight: 600; border-top: 2px solid var(--line); }
 .pill.warn { background: var(--warn-soft); color: var(--warn); }
 .pill.bad { background: var(--bad-soft); color: var(--bad); }
 .pill.info { background: var(--accent-soft); color: var(--accent); }
-#dt-details summary{cursor:pointer;list-style-position:inside}.dt-table select{min-height:0;padding:2px 6px;font-size:13px}.dt-table tr.dt-miss td{background:var(--warn-soft)}
+#dt-details summary{cursor:pointer;list-style-position:inside}#dt-details .tablewrap{max-height:440px;overflow:auto}.dt-table select{min-height:0;padding:2px 6px;font-size:13px}.dt-table tr.dt-miss td{background:var(--warn-soft)}
 .big { font-family: var(--font-display); font-size: 26px; font-weight: 700; line-height: 1; }
 .checkgrid td:first-child { width: 34%; }
 details { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
@@ -628,7 +628,7 @@ body.live .pv-preview { display: none; }
     <div class="panel">
       <div class="panel-head"><h2>Averages by day type</h2><span class="note" id="ex-scope" style="margin:0"></span></div>
       <div class="tablewrap"><table id="ex-table"></table></div>
-      <p class="note">Counts only days with at least one throw in the selected throw types, measured or self-reported. A day's type is the one logged for it; if none was logged, the player's report, then the plan, supplies it (hover a day to see which). Hover any number for its breakdown by throw type. Mode mph is the whole-number velocity thrown most often. Velocity uses throws with a reading; logged plyos have none. Will's logged plyos are sorted by intensity: 1–3 light/moderate, 4–5 high.</p>
+      <p class="note">Counts only days with at least one throw in the selected throw types, measured or self-reported. A day's type is the one logged for it; if none was logged, the player's report, then the plan, supplies it (hover a day to see which). Hover any number for its breakdown by throw type. Mode mph is the whole-number velocity thrown most often. Velocity uses throws with a reading; logged plyos have none. Logged plyos are sorted by intensity: 1–3 light/moderate, 4–5 high.</p>
     </div>
     <div class="panel" id="dt-panel" hidden>
       <details id="dt-details"><summary><b>Set or correct day types</b> <span class="note" id="dt-scope" style="margin:0"></span></summary>
@@ -1299,8 +1299,7 @@ function renderDayTypeEditor(lo, hi) {
   const pan = document.getElementById('dt-panel'); if (!pan) return; pan.hidden = !isCoach() || !db; if (pan.hidden) return;
   const days = dateRange(lo, hi).filter(d => dayTotal(d, null, true).n > 0 || DAY_SET.has(d)).reverse();
   const miss = days.filter(d => !typeInfo(d).src).length;
-  document.getElementById('dt-scope').textContent = `· ${days.length} day${days.length === 1 ? '' : 's'} with throws${miss ? `, ${miss} with no type` : ', all typed'}`;
-  if (miss && !pan.dataset.opened) { document.getElementById('dt-details').open = true; pan.dataset.opened = '1'; }
+  const sc = document.getElementById('dt-scope'); sc.innerHTML = `· ${days.length} day${days.length === 1 ? '' : 's'} with throws${miss ? `, <b style="color:var(--warn)">${miss} with no type</b>` : ', all typed'}`;
   const tb = document.getElementById('dt-table');
   if (!days.length) { tb.innerHTML = '<tbody><tr><td class="muted">No days with throws in these dates.</td></tr></tbody>'; return; }
   tb.innerHTML = `<thead><tr><th>Day</th><th class="n">Throws</th><th class="n">WL units</th><th>Day type</th><th>From</th></tr></thead><tbody>${days.map(d => {
@@ -2730,6 +2729,7 @@ function renderGuidance() {
   const asOf = B.asOf < lastActual ? B.asOf : lastActual; const next = addDays(asOf, 1);
   document.getElementById('g-note').textContent = `Actual throws through ${nice(asOf)}, ${asOf.slice(0, 4)}; set "Actuals up to" above to move the day`;
   const r = acRangeMap(firstActual, next, d => d <= asOf ? actualWL(d) : 0).get(next);
+  if (!r) { el.innerHTML = '<p class="muted">Not enough logged throws yet to give guidance.</p>'; return; }
   const plan = B.draft[next]; const pu = dayPlanWL(plan); const [rlo, rhi] = acRange();
   const acIf = x => r.f(x);
   const status = x => { const v = acIf(x); return v > rhi ? `<span class="pill bad">▲ ${fmt(v, 2)}</span>` : v < rlo ? `<span class="pill warn">▼ ${fmt(v, 2)}</span>` : `<span class="pill good">${fmt(v, 2)}</span>`; };
@@ -3620,7 +3620,7 @@ async function connectStore() {
 const VIEWS = ['checks', 'explore', 'builder', 'player', 'data'];
 let rendered = {};
 // ---------- player view ----------
-window.__t = {get S() { return S; }, typeOf: d => typeOf(d), typeInfo: d => typeInfo(d), wl: d => actualWL(d), tot: d => dayTotal(d, null, true), det: d => dayDetail(d, null, true), addReport: (d, r) => { selfReports.set(d, r); reportsChanged(); }};
+window.__t = {get S() { return S; }, get B() { return B; }, typeOf: d => typeOf(d), typeInfo: d => typeInfo(d), wl: d => actualWL(d), tot: d => dayTotal(d, null, true), det: d => dayDetail(d, null, true), addReport: (d, r) => { selfReports.set(d, r); reportsChanged(); }};
 function recalcSpan() {
   if (IS_TEST) return; const ks = [...selfReports.entries()].filter(([, r]) => r && (r.items || []).some(x => +x.n > 0)).map(([d]) => d).sort();
   firstActual = ks.length && ks[0] < DEV_FIRST ? ks[0] : DEV_FIRST; lastActual = ks.length && ks[ks.length - 1] > DEV_LAST ? ks[ks.length - 1] : DEV_LAST;
@@ -4060,7 +4060,7 @@ function renderData() {
 }
 function renderPitcherSelect() {
   const ps = document.getElementById('pitcher'); if (!ps) return;
-  const tag = x => x.id === 'will' ? ' · from the sheet' : x.id === 'test1' || /^test/.test(x.id) ? ' · test' : ' · no data yet';
+  const tag = x => (x.id === 'test1' || /^test/.test(x.id) || x.test) ? ' · test' : LIVE_SITE ? '' : x.id === 'will' ? ' · from the sheet' : ' · no data yet'; /* the live site lists plain names */
   // alphabetical by last name ("De los Santos" sorts under D); test pitchers last
   const last = n => { const t = String(n || '').replace(/,?\s+(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim().split(/\s+/);
     const i = t.findIndex((w, k) => k > 0 && /^(de|del|della|da|di|van|von|la|le|st\.?)$/i.test(w)); return (i > 0 ? t.slice(i) : t.slice(-1)).join(' '); };
