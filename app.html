@@ -141,7 +141,7 @@ tr.total td { font-weight: 600; border-top: 2px solid var(--line); }
 .pill.warn { background: var(--warn-soft); color: var(--warn); }
 .pill.bad { background: var(--bad-soft); color: var(--bad); }
 .pill.info { background: var(--accent-soft); color: var(--accent); }
-#dt-details summary{cursor:pointer;list-style-position:inside}#dt-details .tablewrap{max-height:440px;overflow:auto}.dt-table select{min-height:0;padding:2px 6px;font-size:13px}.dt-table tr.dt-miss td{background:var(--warn-soft)}
+#dt-details summary{cursor:pointer;list-style-position:inside}.sr-mv button{min-height:0;padding:3px 8px;font-size:12.5px}.sr-mv .sr-mvbtn{border:1px solid var(--line);color:var(--ink)}.sr-mvf{display:inline-flex;gap:4px;align-items:center;white-space:nowrap}.sr-mvf input{min-height:0;padding:2px 4px;font-size:13px}td.sr-mv{white-space:nowrap}#dt-details .tablewrap{max-height:440px;overflow:auto}.dt-table select{min-height:0;padding:2px 6px;font-size:13px}.dt-table tr.dt-miss td{background:var(--warn-soft)}
 .big { font-family: var(--font-display); font-size: 26px; font-weight: 700; line-height: 1; }
 .checkgrid td:first-child { width: 34%; }
 details { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
@@ -1324,7 +1324,7 @@ function renderReportAccuracy(lo, hi) {
   if (!rows.length) { tbl.innerHTML = '<tbody><tr><td class="muted">No self-reports in these dates yet. Pitchers send them from the Player screen.</td></tr></tbody>'; document.getElementById('sr-sum').innerHTML = ''; return; }
   const pc = (a, b) => b ? Math.round((a - b) / b * 100) : null;
   const sig = v => v === null ? '–' : `${v > 0 ? '+' : ''}${v}%`;
-  let cmp = 0, sumN = 0, sumW = 0;
+  let cmp = 0, sumN = 0, sumW = 0; const canMove = isCoach() && !!db;
   const body = rows.map(([d, rp]) => {
     const dc = DEVICE_CATS.get(d), rcat = r => r.kind === 'game' ? 'gp' : r.cat, its = (rp.items || []).filter(r => +r.n > 0);
     const meas = its.filter(r => dc && dc.has(rcat(r))), kept = its.filter(r => !(dc && dc.has(rcat(r))));
@@ -1335,11 +1335,29 @@ function renderReportAccuracy(lo, hi) {
     if (M) { cmp++; sumN += Math.abs(pc(R.n, M.n) || 0); sumW += Math.abs(pc(R.wl, M.wl) || 0); }
     const cls = v => v === null ? '' : Math.abs(v) <= 10 ? 'sr-ok' : Math.abs(v) <= 25 ? 'sr-mid' : 'sr-bad';
     const dn = M ? pc(R.n, M.n) : null, dw = M ? pc(R.wl, M.wl) : null;
-    return `<tr><td>${DOW[dow(d)]} ${nice(d)}</td><td>${esc(rp.reporter || 'player')}</td><td class="n">${R.n}</td><td class="n">${M ? M.n : '–'}</td><td class="n ${cls(dn)}">${sig(dn)}</td><td class="n">${fmt(R.wl)}</td><td class="n">${M ? fmt(M.wl) : '–'}</td><td class="n ${cls(dw)}">${sig(dw)}</td><td>${status}</td></tr>`;
+    return `<tr><td>${DOW[dow(d)]} ${nice(d)}</td><td>${esc(rp.reporter || 'player')}</td><td class="n">${R.n}</td><td class="n">${M ? M.n : '–'}</td><td class="n ${cls(dn)}">${sig(dn)}</td><td class="n">${fmt(R.wl)}</td><td class="n">${M ? fmt(M.wl) : '–'}</td><td class="n ${cls(dw)}">${sig(dw)}</td><td>${status}</td>${canMove ? `<td class="sr-mv" data-d="${d}"><button type="button" class="sr-mvbtn">Change date</button></td>` : ''}</tr>`;
   }).join('');
-  tbl.innerHTML = `<thead><tr><th>Day</th><th>By</th><th class="n">Reported throws</th><th class="n">Measured</th><th class="n">Off by</th><th class="n">Reported WL units</th><th class="n">Measured</th><th class="n">Off by</th><th>Status</th></tr></thead><tbody>${body}</tbody>`;
+  tbl.innerHTML = `<thead><tr><th>Day</th><th>By</th><th class="n">Reported throws</th><th class="n">Measured</th><th class="n">Off by</th><th class="n">Reported WL units</th><th class="n">Measured</th><th class="n">Off by</th><th>Status</th>${canMove ? '<th></th>' : ''}</tr></thead><tbody>${body}</tbody>`;
   document.getElementById('sr-sum').innerHTML = cmp ? `<span><span class="k">Days compared</span><b>${cmp}</b></span><span><span class="k">Average miss, throws</span><b>${Math.round(sumN / cmp)}%</b></span><span><span class="k">Average miss, WL units</span><b>${Math.round(sumW / cmp)}%</b></span>` : '<span class="muted">No report has measured data to compare against yet.</span>';
 }
+/* Change a self-report's date (coaches): for a report the player put on the wrong day. Nothing else in it changes. */
+document.addEventListener('click', async e => {
+  const b = e.target.closest && e.target.closest('.sr-mvbtn, .sr-mvgo, .sr-mvx'); if (!b) return;
+  const td = b.closest('.sr-mv'), d = td.dataset.d;
+  if (b.classList.contains('sr-mvbtn')) { td.innerHTML = `<span class="sr-mvf"><input type="date" class="sr-mvd" value="${d}" max="${TODAY}" aria-label="New date for the ${nice(d)} report"><button type="button" class="primary sr-mvgo">Move</button><button type="button" class="ghost sr-mvx">Cancel</button></span>`; td.querySelector('.sr-mvd').focus(); return; }
+  if (b.classList.contains('sr-mvx')) { renderExplore(); return; }
+  const nd = td.querySelector('.sr-mvd').value, rp = selfReports.get(d);
+  if (!nd || nd === d) { setStatus('Pick a different date for the report.', 'err'); return; }
+  if (selfReports.has(nd)) { setStatus(`There's already a report on ${nice(nd)}. Remove or move that one first.`, 'err'); return; }
+  if (!rp) { renderExplore(); return; }
+  b.disabled = true; b.textContent = 'Moving…';
+  try {
+    if (LIVE_SITE) await db.collection(col('selfReports')).doc(nd).set({moveFrom: d});
+    else { const {...doc} = rp; doc.date = nd; await db.collection(col('selfReports')).doc(nd).set(doc); await db.collection(col('selfReports')).doc(d).delete(); }
+    selfReports.delete(d); selfReports.set(nd, {...rp, date: nd}); reportsChanged();
+    setStatus(`Moved the ${nice(d)} report to ${DOW[dow(nd)]} ${nice(nd)}.`, 'ok');
+  } catch (er) { setStatus(`Could not move the report${er && er.message ? ': ' + er.message : ''}.`, 'err'); renderExplore(); }
+});
 function renderExplore() {
   const f = S.ex; const lo = f.from <= f.to ? f.from : f.to, hi = f.from <= f.to ? f.to : f.from;
   const dates = dateRange(lo, hi);
